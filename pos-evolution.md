@@ -448,7 +448,180 @@ The definition of $\mathscr{view}(B)$ is *agnostic of the viewer*, in the sense 
 
 In Gasper, validators are partitioned into *committees* in each epoch, with one committee per slot. In each slot, one validator from the designated committee proposes a block. Then, all the members of that committee will *attest* to what they see as the head of the chain with the fork choice rule HLMD-GHOST (a slight variation of LMD-GHOST that will be presented below).
 
+
+<details><summary>Committee</summary>
+
+In order to decrease the number of messages on the network while attesting, the set of validators is partitioned (within an epoch) into committees. Each validator participates in only one of the committee, i.e., committees within an epoch are disjoint.
+
+The protocol adjusts the number of committees in an epoch based on the number of active validators in that epoch. The number of committees is defined through the following function.
+
+```python
+
+def get_committee_count_per_slot(state: BeaconState, epoch: Epoch) -> uint64:
+    """
+    Return the number of committees in each slot for the given ``epoch``.
+    """
+    return max(uint64(1), min(
+        MAX_COMMITTEES_PER_SLOT,
+        uint64(len(get_active_validator_indices(state, epoch))) // SLOTS_PER_EPOCH // TARGET_COMMITTEE_SIZE,
+    ))
+
+```
+
+For example, assuming $262144$ active validators in an epoch $n$, and requiring $64$ committees per slot (with $32$ slots per epoch), we have in epoch $n$ committees of $128$ validators. 
+
+In the current implementation of Gasper, there are $64$ committtees, also called *beacon committees*, per slot. These were originally intended to map directly to $64$ shards, but no longer have that function. These beacon committees still serve a useful purpose in parallelising the aggregation of attestations.
+However, all the $64$ committees in a slot act as a single committee, all voting on the same information.
+
+At the start of a new epoch, all the existing committees are disbanded and the active validator set is divided into new committees. The composition of the committees is determined at the begining of an epoch. In particular, by considering the set of active validators for that epoch, and the RANDAO seed value at the start of the previous epoch (RANDAO is a mechanism to provide an in-protocol randomness [https://eth2book.info/altair/part2/building_blocks/randomness/#the-randao]),
+
+```python
+
+def get_seed(state: BeaconState, epoch: Epoch, domain_type: DomainType) -> Bytes32:
+    """
+    Return the seed at ``epoch``.
+    """
+    mix = get_randao_mix(state, Epoch(epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1))  # Avoid underflow
+    return hash(domain_type + uint_to_bytes(epoch) + mix)
+
+```
+
+the active validators are divided among the committees in an epoch through the following function.
+
+
+```python
+
+def compute_committee(indices: Sequence[ValidatorIndex],
+                      seed: Bytes32,
+                      index: uint64,
+                      count: uint64) -> Sequence[ValidatorIndex]:
+    """
+    Return the committee corresponding to ``indices``, ``seed``, ``index``, and committee ``count``.
+    """
+    start = (len(indices) * index) // count
+    end = (len(indices) * uint64(index + 1)) // count
+    return [indices[compute_shuffled_index(uint64(i), uint64(len(indices)), seed)] for i in range(start, end)]
+
+
+```
+
+with `compute_shuffled_index` defined as it follows.
+
+```python
+
+def compute_shuffled_index(index: uint64, index_count: uint64, seed: Bytes32) -> uint64:
+    """
+    Return the shuffled index corresponding to ``seed`` (and ``index_count``).
+    """
+    assert index < index_count
+
+    # Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
+    # See the 'generalized domain' algorithm on page 3
+    for current_round in range(SHUFFLE_ROUND_COUNT):
+        pivot = bytes_to_uint64(hash(seed + uint_to_bytes(uint8(current_round)))[0:8]) % index_count
+        flip = (pivot + index_count - index) % index_count
+        position = max(index, flip)
+        source = hash(
+            seed
+            + uint_to_bytes(uint8(current_round))
+            + uint_to_bytes(uint32(position // 256))
+        )
+        byte = uint8(source[(position % 256) // 8])
+        bit = (byte >> (position % 8)) % 2
+        index = flip if bit else index
+
+    return index
+
+```
+
+Validators are assigned to committees randomly in order to prevent an attacker to dominate a single committee. 
+
+Other than the beacon committees, whose members, as we already said, attest to what they see as the head of the chain with the fork choice rule HLMD-GHOST, the current implementation of Gasper also considers the *sync committee*. 
+
+The sync committee is a committee of $512$ validators that is randomly selected every $256$ epochs (around $27$ hours), votes $8192$ times during that period, and while a validator is part of the currently active sync committee it is expected to continually sign the block header that is the new head of the chain at each slot.
+
+*The purpose of the sync committee is to allow light clients, i.e., small nodes able to run on lower resource kit, to keep track of the chain of beacon block headers. Sync committees are (i) updated infrequently, and (ii) saved directly in the beacon state, allowing light clients to verify the sync committee with a Merkle branch from a block header that they already know about, and use the public keys in the sync committee to directly authenticate signatures of more recent blocks.* [https://github.com/ethereum/annotated-spec/blob/master/altair/sync-protocol.md]
+
+```python
+
+class SyncCommitteeMessage(Container):
+    # Slot to which this contribution pertains
+    slot: Slot
+    # Block root for this signature
+    beacon_block_root: Root
+    # Index of the validator that produced this signature
+    validator_index: ValidatorIndex
+    # Signature by the validator over the block root of `slot`
+    signature: BLSSignature
+
+```
+
+To determine sync committee assignments, a validator can run the following function.
+
+```python
+
+def is_assigned_to_sync_committee(state: BeaconState,
+                                  epoch: Epoch,
+                                  validator_index: ValidatorIndex) -> bool:
+    sync_committee_period = compute_sync_committee_period(epoch)
+    current_epoch = get_current_epoch(state)
+    current_sync_committee_period = compute_sync_committee_period(current_epoch)
+    next_sync_committee_period = current_sync_committee_period + 1
+    assert sync_committee_period in (current_sync_committee_period, next_sync_committee_period)
+
+    pubkey = state.validators[validator_index].pubkey
+    if sync_committee_period == current_sync_committee_period:
+        return pubkey in state.current_sync_committee.pubkeys
+    else:  # sync_committee_period == next_sync_committee_period
+        return pubkey in state.next_sync_committee.pubkeys
+
+```
+
+Here, `epoch` is an epoch number within the current or next sync committee period, computed as it follows.
+
+```python
+
+
+def compute_sync_committee_period(epoch: Epoch) -> uint64:
+    return epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+
+```
+`is_assigned_to_sync_committee` is a *predicate that indicates the presence or absence of the validator in the corresponding sync committee for the queried sync committee period.* [https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/validator.md#containers]
+
+Observe that a validator can be part of both a beacon committee and a sync committee.
+
+
+</details>
+
 More in details, in each slot, the protocol requires validators to carry out two types of work. One validator in the committee, called *proposer*, needs to *propose* a new block (which is a message containing the slot number, a pointer to the parent block, a set of pointers to all the attestations that the validator has accepted, but have not been included in any other ancestor block, and some implementation-specific data).
+
+
+<details><summary>Proposer</summary>
+
+```python
+
+def compute_proposer_index(state: BeaconState, indices: Sequence[ValidatorIndex], seed: Bytes32) -> ValidatorIndex:
+    """
+    Return from ``indices`` a random index sampled by effective balance.
+    """
+    assert len(indices) > 0
+    MAX_RANDOM_BYTE = 2**8 - 1
+    i = uint64(0)
+    total = uint64(len(indices))
+    while True:
+        candidate_index = indices[compute_shuffled_index(i % total, total, seed)]
+        random_byte = hash(seed + uint_to_bytes(uint64(i // 32)))[i % 32]
+        effective_balance = state.validators[candidate_index].effective_balance
+        if effective_balance * MAX_RANDOM_BYTE >= MAX_EFFECTIVE_BALANCE * random_byte:
+            return candidate_index
+        i += 1
+
+```
+
+This function chooses a proposer, accepts them with `BALANCE/32` probability, and if it fails it keeps trying. This is done so that the probability of being selected as a proposer remains proportional to balance.
+
+</details>
+
 
 
 
