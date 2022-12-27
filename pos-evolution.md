@@ -4,7 +4,6 @@
 
 In this document we present the evolution of the proof-of-stake consensus protocol of Ethereum, called **Gasper**, aiming at a self-contained reference for future study and research. 
 
-
 <details><summary>Implementation</summary>
     
     We include in boxes of this kind the (explained) implementation of the most relevant theoretical parts. Observe that the code showed for the implementation follows the [consensus pyspec](https://github.com/ethereum/consensus-specs), and is presented using Simple Serialize (SSZ), a serialization and merkleization standard created specifically for Ethereum consensus. This specification serves as a reference for consensus layer devs and is also used for creating the test case vectors for client teams. A tutorial on how to run the Ethereum consensus pyspec can be found [here](https://archive.devcon.org/archive/watch/6/how-to-use-executable-consensus-pyspec/?tab=YouTube), and an updated annotated specification can be found [here](https://eth2book.info/bellatrix/part3/).
@@ -18,8 +17,7 @@ Since this document aims at grouping together all the most relevant resources co
 
 #### Acknowledgments  
 
-Special thanks to Aditya Asgaonkar, Francesco D'Amato, Tyler Holmes, and [...] for feedback and helpful discussions.
-
+Special thanks to Ittai Abraham, Aditya Asgaonkar, Francesco D'Amato, Tyler Holmes, and anonymous reviewers for feedback and helpful discussions.
 
 The proof-of-stake consensus protocol of Ethereum, Gasper, evolved during the years. This is because attacks were found that undermined its properties and functioning. As a response to that, solutions were developed to cope with the problems. 
 
@@ -79,7 +77,7 @@ Observe that validators have two private/public key pairs: `pubkey`, used for si
 Validators are assigned a protocol to follow.
 A protocol for $\mathcal{V}$ consists of a collection of programs with instructions for all validators.
 
-Each validator has a deposit; when a validator joins $\mathcal{V}$, its deposit is the number of deposited coins, e.g., ETH. After joining, each validator’s balance rises and falls with rewards and penalties.
+Each validator has a deposit (or *stake*); when a validator joins $\mathcal{V}$, its deposit is the number of deposited coins, e.g., ETH. After joining, each validator’s balance rises and falls with rewards and penalties.
 
 
 <details><summary>Deposit</summary>
@@ -186,7 +184,7 @@ def process_deposit(state: BeaconState, deposit: Deposit) -> None:
 
 #### Failures
 
-A validator that follows its protocol during an execution is called *honest*. On the other hand, a faulty validator may crash or even deviate arbitrarily from its specification, e.g., when corrupted by an adversary; such validators are also called *Byzantine*. In particular, Byzantine processes can *equivocate*, i.e., they can send conflicting messages. We consider only Byzantine faults here and assume the existence of a probabilistic poly-time adversary $\mathcal{A}$ that can choose up to $f$ validators to corrupt. The adversary $\mathcal{A}$ knows the internal state of corrupted validators. Finally, we assume that the majority of the validators is honest.
+A validator that follows its protocol during an execution is called *honest*. On the other hand, a faulty validator may crash or even deviate arbitrarily from its specification, e.g., when corrupted by an adversary; such validators are also called *Byzantine*. In particular, Byzantine processes can *equivocate*, i.e., they can send conflicting messages. We consider Byzantine faults here and assume the existence of a probabilistic poly-time adversary $\mathcal{A}$ that can choose up to $f$ validators to corrupt. The adversary $\mathcal{A}$ knows the internal state of corrupted validators. Finally, we assume that the majority of the validators is honest.
 
 #### Links
 
@@ -231,22 +229,21 @@ A vote message consists of four fields: two blocks (called in the context of Cas
 
 *For the rest of this document, when we say “$\frac{2}{3}$ of validators”, we are referring to the deposit-weighted fraction; that is, a set of validators whose sum deposit size equals to $\frac{2}{3}$ of the total deposit size of the entire set of validators.*
 
-Once a vote $⟨v_i, a, b, h(a), h(b)⟩$ has been cast by $\frac{2}{3}$ of validators and the checkpoint $a$ is justified (and the notion of *supermajority link* is defined as an ordered pair $(a,b),$ such that $\frac{2}{3}$ of validators have broadcast votes with source $a$ and target $b$), the checkpoint $b$ becomes justified. Finally, the checkpoint $b$ is finalized if $b$ is justified and at least $\frac{2}{3}$ of validators broadcast a vote $⟨v_i, b, c, h(b), h(c)⟩$, with $h(c)=h(b)+1.$ Observe that votes can skip checkpoints, i.e., given a vote $⟨v_i, a, b, h(a), h(b)⟩$, it is permitted to have h(b) > h(a) + 1.
+Once a vote $⟨v_i, a, b, h(a), h(b)⟩$ has been cast by $\frac{2}{3}$ of validators and the checkpoint $a$ is justified (and the notion of *supermajority link* is defined as an ordered pair $(a,b),$ such that $\frac{2}{3}$ of validators have broadcast votes with source $a$ and target $b$), the checkpoint $b$ becomes justified. Finally, the checkpoint $b$ is finalized if $b$ is justified and at least $\frac{2}{3}$ of validators broadcast a vote $⟨v_i, b, c, h(b), h(c)⟩$, with $h(c)=h(b)+1.$ Observe that votes can skip checkpoints, i.e., given a vote $⟨v_i, a, b, h(a), h(b)⟩$, it is permitted to have $h(b) > h(a) + 1$.
 
 Let $⟨v_i, s_1, t_1, h(s_1), h(t_1)⟩$ and $⟨v, s_2, t_2, h(s_2), h(t_2)⟩$ be two voted cast by validator $v_i$. Then, it must not be that either:
 
 * $h(t_1) = h(t_2)$, i.e., a validator must not publish two distinct votes for the same target height; or
 * $h(s_1) < h(s_2) < h(t_2) < h(t_1)$, i.e., a validator must not vote within the span of its other votes.
 
-If a validator violates either condition, the evidence of the violation can be observed, at which point the validator’s entire deposit is taken away (it is slashed) with a reward given to the submitter of the evidence transaction.
+If a validator violates either (slashing) condition, the evidence of the violation can be observed, at which point the validator’s entire deposit is taken away (it is slashed) with a reward given to the submitter of the evidence transaction.
 
 Casper satisfies the following two properties, and the proof can be found in the [full paper](https://arxiv.org/pdf/1710.09437.pdf).
 
-* **Accountable Safety**: Two conflicting checkpoints cannot both be finalized.
-* **Plausible Liveness**: It is always possible to produce new finalized checkpoints, provided there exist blocks extending the block-tree formed by the underlying proposal mechanism.
+* **Accountable Safety**: Two conflicting checkpoints cannot both be finalized, provided that less than $\frac{1}{3}$ of the total deposit size of the entire set of validators is adversarial. Moreover, two conflicting checkpoints imply more than $\frac{1}{3}$ adversarial stake can be detected.
+* **Plausible Liveness**: It is always possible to produce new finalized checkpoints, provided there exist blocks extending the justified checkpoint with the greatest height, and more than $\frac{2}{3}$ of the validators' stake is honest.
 
 As mentioned above, the set of validators needs to be able to change. New validators must be able to join, and existing validators must be able to leave. 
-
 
 
 <details><summary>Voluntary Exit</summary>
@@ -923,7 +920,7 @@ Finally, the main fork choice function is given by the following.
 
 ```python
 def get_head(store: Store) -> Root:
-    # Get filtered block tree that only includes viable branches
+    # Get filtered block-tree that only includes viable branches
     blocks = get_filtered_block_tree(store)
     # Execute the LMD-GHOST fork choice
     head = store.justified_checkpoint.root
@@ -994,7 +991,7 @@ In this section we present the properties that Gasper *should* satisfy as a cons
 
 However, due to some discovered attacks (that will be presented in the following sections), these properties are not guaranteed in the original version of Gasper, i.e., the version presented above.
 
-The goal of a consensus protocol is to allow all participants to reach a common decision despite the presence of faulty ones. In our context, this translates into allowing honest validators to grow a chain that is finalized and where all blocks consistute consistent state transitions with each other. Here we assume validators being Byzantine, being potentially offline, or suffering latency problems. In other terms, this translates to the following properties.
+The goal of a consensus protocol is to allow all participants to reach a common decision despite the presence of faulty ones. In our context, this translates into allowing honest validators to grow a chain that is finalized and where all blocks constitute consistent state transitions with each other. Here we assume validators being Byzantine, being potentially offline, or suffering latency problems. In other terms, this translates to the following properties.
 
 * **Safety**: If the set of finalized blocks $F(G)$ for any view $G$ can never contain two conflicting blocks. 
 * **Liveness**: If the set of finalized blocks can actually grow. 
