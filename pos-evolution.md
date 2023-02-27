@@ -201,7 +201,7 @@ In a *partially synchronous network* in the sleepy model, communication is async
 
 ### Gasper
 
-**Gasper** is a proof-of-stake consensus protocol obtained by the combination of two modules: **FFG Casper**, a finality gadget, and (a variation of) **LMD-GHOST**, a fork choice rule. The latter evolved during the years, due to some problems. 
+**Gasper** is a proof-of-stake consensus protocol obtained by the combination of two modules: **FFG Casper**, a finality gadget, and (a variation of) **LMD-GHOST**, a fork-choice rule. The latter evolved during the years, due to some problems. 
 
 #### Friendly Finality Gadget (FFG) Casper
 
@@ -282,7 +282,7 @@ Previously, a checkpoint $c$ was called finalized if $c$ is justified and there 
 
 #### LMD-GHOST
 
-The Latest Message Driven Greediest Heaviest Observed SubTree rule (**LMD-GHOST**) is a fork choice rule (A fork choice rule is a function that takes as inputs the set of blocks and other messages that have been seen, and outputs what the *canonical chain* is. This is required because there may be multiple valid chains to choose from.) introduced by [Zamfir](https://github.com/vladzamfir/research/blob/master/papers/CasperTFG/CasperTFG.pdf) while looking for a “correct-by-construction” consensus protocol. LMD-GHOST is an adaptation of the original GHOST protocol introduced by [Sompolinsky and Zohar](https://eprint.iacr.org/2013/881.pdf), a greedy algorithm that grows a blockchain on sub-branches with the “most activity”, and it guides the block production process. 
+The Latest Message Driven Greediest Heaviest Observed SubTree rule (**LMD-GHOST**) is a fork-choice rule (A fork-choice rule is a function that takes as inputs the set of blocks and other messages that have been seen, and outputs what the *canonical chain* is. This is required because there may be multiple valid chains to choose from.) introduced by [Zamfir](https://github.com/vladzamfir/research/blob/master/papers/CasperTFG/CasperTFG.pdf) while looking for a “correct-by-construction” consensus protocol. LMD-GHOST is an adaptation of the original GHOST protocol introduced by [Sompolinsky and Zohar](https://eprint.iacr.org/2013/881.pdf), a greedy algorithm that grows a blockchain on sub-branches with the “most activity”, and it guides the block production process. 
 
 The idea behind LMD-GHOST is that at any fork, the protocol uses the weights of the subtrees created by the fork as a heuristic and assumes the subtree with the heaviest weight is the *right* one, as evident from the name of the algorithm. The weight of a subtree is determined by the sum of the stake of the validators that have cast a vote, at every slot, on each single block forming such subtree. Moreover, the protocol considers only each validator’s most recent vote (or *attestation*) (LMD).
 
@@ -302,7 +302,7 @@ This struct represents the vote in the latest (meaning highest-epoch) valid atte
 
 We first show informally how LMD-GHOST works through [an example](https://vitalik.ca/general/2018/12/05/cbc_casper.html), and then we present the algorithm that implements it. 
 
-Let us consider a validator set $\mathcal{V} = \{v_1, v_2, v_3, v_4, v_5\}$ and let us assume that validator $v_1$ makes the blocks at slots 0 and 5, validator $v_2$ makes the blocks at slots 1 and 6, and so on. A client evaluating the LMD-GHOST fork choice rule cares only about the most recent (i.e., highest-slot) message (i.e., block) signed by each validator:
+Let us consider a validator set $\mathcal{V} = \{v_1, v_2, v_3, v_4, v_5\}$ and let us assume that validator $v_1$ makes the blocks at slots 0 and 5, validator $v_2$ makes the blocks at slots 1 and 6, and so on. A client evaluating the LMD-GHOST fork-choice rule cares only about the most recent (i.e., highest-slot) message (i.e., block) signed by each validator:
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_839d656f9a58978c3dfc8cff562eae92.jpeg)
 
@@ -324,14 +324,14 @@ A *view* of a validator $v_i \in \mathcal{V}$ at a given time $t$, denoted as $\
 
 Finally, given a view $G$ (*Since usually one talks about a specific point in time, the time can be suppressed and a notation such as $\mathscr{view}(v_i)$ (or, to simplify the notation, $G$) can be used to talk about $\mathscr{view}(v_i,t)$.*), let $M$ be the set of latest attestations, one per validator. The weight $w(G,B,M)$ is defined to be the sum of the stake of the validators whose last attestation in $M$ is to $B$ or descendants of $B.$
 
-The following algorithm implements the LMD-GHOST fork choice rule.
+The following algorithm implements the LMD-GHOST fork-choice rule.
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_3f3996e05c94ac56163b0994a5c11843.png)
 
 
 #### FFG Casper + (H)LMD-GHOST = Gasper
 
-As we already mentioned, **Gasper** is a proof-of-stake protocol obtained by combining the finality gadget Casper on top and (an FFG-aware variation of) the fork choice LMD-GHOST as a basis, called *Hybrid* LMD-GHOST (HLMD-GHOST). 
+As we already mentioned, **Gasper** is a proof-of-stake protocol obtained by combining the finality gadget Casper on top and (an FFG-aware variation of) the fork-choice LMD-GHOST as a basis, called *Hybrid* LMD-GHOST (HLMD-GHOST). 
 
 
 <details><summary>Beacon State</summary>
@@ -380,7 +380,7 @@ The `BeaconState` is what every validator must agree on, i.e., it is the state t
 
 We describe the most relevant (for this document) fields in the following.
 
-`genesis_time`: used by the fork choice rule to figure out what slot we're in, and to validate `execution_payloads`;
+`genesis_time`: used by the fork-choice rule to figure out what slot we're in, and to validate `execution_payloads`;
 
 `genesis_validators_root`: used to uniquely identify the chain that we are on;
 
@@ -406,7 +406,7 @@ We describe the most relevant (for this document) fields in the following.
 
 `previous_justified_checkpoint` and `current_justified_checkpoint` are the most recent justified `Checkpoint` as it was during the previous epoch and the most recent justified `Checkpoint` during the current epoch, respectively. They are used to filter attestations, i.e., blocks are considered valid if they include only attestations with a source checkpoint that matches the justified checkpoint the state. Moreover, they are used during the finalization process, following the rule of FFG Casper;
 
-`finalized_checkpoint`: used to keep track of the finalized checkpoint, as a result of FFG Casper. This guarantees that the state at or before the epoch with the finalized checkpoint will never be reverted, and the fork choice rule does not need to go back more that this checkpoint;
+`finalized_checkpoint`: used to keep track of the finalized checkpoint, as a result of FFG Casper. This guarantees that the state at or before the epoch with the finalized checkpoint will never be reverted, and the fork-choice rule does not need to go back more that this checkpoint;
 
 `latest_execution_payload_header`: header of the most recent execution payload.
 
@@ -449,7 +449,7 @@ Finally, observe that, in Gasper, instead of justifying and finalizing checkpoin
 Given a block $B$, we define $\mathscr{view}(B)$, the view of $B$, to be the view consisting of $B$ and all its ancestors. We define $\mathscr{ffgview}(B)$, the FFG view of $B$, to be $\mathscr{view}(LEBB(B))$.
 The definition of $\mathscr{view}(B)$ is *agnostic of the viewer*, in the sense that any view that accepted $B$ can compute an identical $\mathscr{view}(B)$, so we do not need to supply a validator into the argument. Intuitively, $\mathscr{view}(B)$ *focuses* the view to the chain starting from the genesis block to $B$ and $\mathscr{ffgview}(B)$ looks at a *frozen* snapshot of $\mathscr{view}(B)$ at the last checkpoint. Casper FFG operates only on epoch boundary pairs, so the FFG view of a block $B$ extracts exactly the information in the chain starting from the genesis block to $B$ that is relevant to Casper FFG.
 
-In Gasper, validators are partitioned into *committees* in each epoch, with one committee per slot. In each slot, one validator from the designated committee proposes a block. Then, all the members of that committee will *attest* to what they see as the head of the chain with the fork choice rule HLMD-GHOST (a slight variation of LMD-GHOST that will be presented below).
+In Gasper, validators are partitioned into *committees* in each epoch, with one committee per slot. In each slot, one validator from the designated committee proposes a block. Then, all the members of that committee will *attest* to what they see as the head of the chain with the fork-choice rule HLMD-GHOST (a slight variation of LMD-GHOST that will be presented below).
 
 
 <details><summary>Committee</summary>
@@ -539,7 +539,7 @@ def compute_shuffled_index(index: uint64, index_count: uint64, seed: Bytes32) ->
 
 Validators are assigned to committees randomly in order to prevent an attacker to dominate a single committee. 
 
-Other than the beacon committees, whose members, as we already said, attest to what they see as the head of the chain with the fork choice rule HLMD-GHOST, the current implementation of Gasper also considers the *sync committee*. 
+Other than the beacon committees, whose members, as we already said, attest to what they see as the head of the chain with the fork-choice rule HLMD-GHOST, the current implementation of Gasper also considers the *sync committee*. 
 
 The sync committee is a committee of $512$ validators that is randomly selected every $256$ epochs (around $27$ hours), votes $8192$ times during that period, and while a validator is part of the currently active sync committee it is expected to continually sign the block header that is the new head of the chain at each slot.
 
@@ -680,7 +680,7 @@ class BeaconBlock(Container):
 
 </details>
 
-Moreover, everyone in the committee needs to attest to their head of the chain with an attestation $\alpha$ (which is a message containing the slot in which the validator is making the attestation, $\mathscr{slot}(\alpha)$, the target block a validator is attesting to, $\mathscr{block}(\alpha)$, and a checkpoint edge between two epoch boundary pairs, $LJ(\alpha) \rightarrow LE(\alpha)$). Both of them require to add a corresponding block and an attestation, respectively, to the validator's view, and then to broadcast it to the network. Observe that both proposing and attesting requires the committee member to run the same fork choice rule on the validator's own view.
+Moreover, everyone in the committee needs to attest to their head of the chain with an attestation $\alpha$ (which is a message containing the slot in which the validator is making the attestation, $\mathscr{slot}(\alpha)$, the target block a validator is attesting to, $\mathscr{block}(\alpha)$, and a checkpoint edge between two epoch boundary pairs, $LJ(\alpha) \rightarrow LE(\alpha)$). Both of them require to add a corresponding block and an attestation, respectively, to the validator's view, and then to broadcast it to the network. Observe that both proposing and attesting requires the committee member to run the same fork-choice rule on the validator's own view.
 
 Note that, while attesting, a validator does two things at once: it is simultaneously casting a GHOST vote for its block and also a Casper FFG vote for the transition between the two epoch boundary pairs (akin to Casper’s checkpoint blocks).
 
@@ -704,7 +704,7 @@ class AttestationData(Container):
 
 `index`: there can be several committees active in a single slot. This is the number of the committee that the validator belongs to in that slot; 
 
-`beacon_block_root` is the validator's vote on the head block for that slot after locally running the LMD GHOST fork choice rule. If the validator believes that the current slot is empty, then this record might be the root of a block from a previous slot;
+`beacon_block_root` is the validator's vote on the head block for that slot after locally running the LMD GHOST fork-choice rule. If the validator believes that the current slot is empty, then this record might be the root of a block from a previous slot;
 
 `source`: the best currently justified checkpoint for the Casper FFG finalisation process, according to the validator;
 
@@ -877,9 +877,9 @@ We can now finally present HLMD-GHOST, a variation of LMD-GHOST. In this variati
 
 One can think of each chain of a leaf block $B_l$ as storing the state of its own last justified pair. During an epoch, new attestations to blocks in the chain updates the GHOST-relevant list of latest attestations $M$ but not the FFG-relevant justification and finalization information of the chain until the next epoch boundary block. This way, the *FFG part* of the protocol always works with the *frozen until next epoch* information, while the *GHOST part* of the protocol is being updated continuously with the attestations.
 
-<details><summary>Fork Choice</summary>
+<details><summary>fork-choice</summary>
 
-The fork choice is implemented through a `store` object that contains received fork-choice-relevant information, and a function `get_head(store)`.
+The fork-choice is implemented through a `store` object that contains received fork-choice-relevant information, and a function `get_head(store)`.
 
 ```python
 @dataclass
@@ -903,7 +903,7 @@ The records here are as it follows.
 
 `genesis_time`: the time of the genesis block of the chain;
 
-`justified_checkpoint`: the FFG-Casper-justified checkpoint that is used as the root of the HLMD-GHOST fork choice;
+`justified_checkpoint`: the FFG-Casper-justified checkpoint that is used as the root of the HLMD-GHOST fork-choice;
 
 `finalized_checkpoint`: the last finalized checkpoint; 
 
@@ -951,7 +951,7 @@ def on_tick(store: Store, time: uint64) -> None:
             store.justified_checkpoint = store.best_justified_checkpoint
 ```
 
-This function runs on each tick. At the end of each epoch, update the justified checkpoint used in the fork choice;
+This function runs on each tick. At the end of each epoch, update the justified checkpoint used in the fork-choice;
 
 (ii)
 
@@ -1042,7 +1042,7 @@ Observe that `best_justified_checkpoint` is stored to prevend an attack on FFG C
 def should_update_justified_checkpoint(store: Store, new_justified_checkpoint: Checkpoint) -> bool:
     """
     To address the bouncing attack, only update conflicting justified
-    checkpoints in the fork choice if in the early slots of the epoch.
+    checkpoints in the fork-choice if in the early slots of the epoch.
     Otherwise, delay incorporation of new justified checkpoint until next epoch boundary.
 
     See https://ethresear.ch/t/prevention-of-bouncing-attack-on-ffg/6114 for more detailed analysis and discussion.
@@ -1062,12 +1062,12 @@ def should_update_justified_checkpoint(store: Store, new_justified_checkpoint: C
 
 * *Start from a scenario where in epoch $n$, $62\%$ of validators support block $A$, and in epoch $n+1$, $62\%$ of validators support a block $B$. Suppose that the attacker has $5\%$ of the total stake. This scenario requires very exceptional networking conditions to get into; the point of the attack, however, is that if we get into such a scenario the attacker could perpetuate it, permanently preventing finality.*
 * *Due to LMD-GHOST, $B$ is favored, and so validators are continuing to vote for $B$. However, the attacker suddenly publishes attestations worth $5\%$ of the total stake tagged with epoch $n$ for block $A$, causing $A$ to get justified.*
-* *In epoch $n+2$, $A$ is justified and so validators are attesting to $A'$, a descendant of $A$. When $A'$ gets to $62\%$ support, the attacker publishes attestations worth $5\%$ of total stake tagged with epoch $n+1$ for $B$. Now $B$ is justified and favored by the fork choice.*
+* *In epoch $n+2$, $A$ is justified and so validators are attesting to $A'$, a descendant of $A$. When $A'$ gets to $62\%$ support, the attacker publishes attestations worth $5\%$ of total stake tagged with epoch $n+1$ for $B$. Now $B$ is justified and favored by the fork-choice.*
 * *In epoch $n+3$, $B$ is justified, and so validators are attesting to $B'$, a descendant of $B$. When $B'$ gets to $62\%$ support, the attacker publishes attestations worth $5\%$ of total stake tagged with epoch $n+2$ for $A'$, etc.*
 
 *This could continue forever, bouncing permanently between the two chains preventing any new block from being finalized. This attack can happen because the combined use of LMD-GHOST and FFG Casper creates a discontinuity, where a small shift in support for a block can outweigh a large amount of support for another block if that small shift pushes it past the $\frac{2}{3}$ threshold needed for justification. We block the attack by only allowing the latest justified block to change near the beginning of an epoch; this way, there is a full $\frac{2}{3}$ of an epoch during which honest validators agree on the head and have the opportunity to justify a block and thereby further cement it, at the same time causing the LMD-GHOST rule to strongly favor that head. This sets up that block to most likely be finalized in the next epoch.* [https://github.com/ethereum/annotated-spec/blob/master/phase0/fork-choice.md#should_update_justified_checkpoint]
 
-The following function initializes the `store` given a particular block (the `anchor_block`) that the fork choice would start from. The provided `anchor-state` will be regarded as a trusted state. 
+The following function initializes the `store` given a particular block (the `anchor_block`) that the fork-choice would start from. The provided `anchor-state` will be regarded as a trusted state. 
 
 ```python
 def get_forkchoice_store(anchor_state: BeaconState, anchor_block: BeaconBlock) -> Store:
@@ -1091,14 +1091,14 @@ def get_forkchoice_store(anchor_state: BeaconState, anchor_block: BeaconBlock) -
     )
 ```
 
-Finally, the main fork choice function is given by the following.
+Finally, the main fork-choice rule is given by the following.
 
 
 ```python
 def get_head(store: Store) -> Root:
     # Get filtered block-tree that only includes viable branches
     blocks = get_filtered_block_tree(store)
-    # Execute the LMD-GHOST fork choice
+    # Execute the LMD-GHOST fork-choice
     head = store.justified_checkpoint.root
     while True:
         children = [
@@ -1316,8 +1316,8 @@ For example, assuming a validator set of at least $262144$ validators and a safe
 
 [Neu *et al.*](https://arxiv.org/pdf/2009.04987.pdf) [https://ethresear.ch/t/a-balancing-attack-on-gasper-the-current-candidate-for-eth2s-beacon-chain/8079] have shown how the original version of Gasper, i.e., the one presented in the [first part](/GgixO3A1TrSBTfif1E8etw), suffers from a liveness issue that leads to loss of safety for the dynamically available ledger. They presented an attack against Gasper, called *balancing attack*, in the synchronous network model with adversarial network delay.
 
-*Recall that Gasper proceeds in epochs which are further subdivided into $C$ slots each. For simplicity, let $C$ divide $n$ so that every slot has a committee of size $\frac{n}{C}$. For each epoch, a random permutation of all $n$ validators assigns validators to slots’ committees and designates a proposer per slot. Per slot, the proposer produces a new block extending the tip determined by the fork choice rule $HLMD(G)$ executed in local view $G$. Then, each validator of the slot’s committee decides what block to vote for using $HLMD(G)$ in local view $G.$*
-*For the Casper FFG layer, a block can only become finalized if two-thirds of validators vote for it. The attacker aims to keep honest validators split between two options (left and right chain) indefinitely, so that neither option ever gets two-thirds votes and thus no block ever gets finalized. Key technique to maintain this split is that some adversarial validators (‘swayers’) withhold their votes and release them only at specific times and to specific subsets of honest nodes in order to influence the fork choice of honest nodes and thus steer which honest nodes vote left/right.* [https://arxiv.org/pdf/2009.04987.pdf]
+*Recall that Gasper proceeds in epochs which are further subdivided into $C$ slots each. For simplicity, let $C$ divide $n$ so that every slot has a committee of size $\frac{n}{C}$. For each epoch, a random permutation of all $n$ validators assigns validators to slots’ committees and designates a proposer per slot. Per slot, the proposer produces a new block extending the tip determined by the fork-choice rule $HLMD(G)$ executed in local view $G$. Then, each validator of the slot’s committee decides what block to vote for using $HLMD(G)$ in local view $G.$*
+*For the Casper FFG layer, a block can only become finalized if two-thirds of validators vote for it. The attacker aims to keep honest validators split between two options (left and right chain) indefinitely, so that neither option ever gets two-thirds votes and thus no block ever gets finalized. Key technique to maintain this split is that some adversarial validators (‘swayers’) withhold their votes and release them only at specific times and to specific subsets of honest nodes in order to influence the fork-choice of honest nodes and thus steer which honest nodes vote left/right.* [https://arxiv.org/pdf/2009.04987.pdf]
 
 The attacks requires an adversary to (i) know at what points in time honest validators execute HLMD-GHOST and (ii) be able to target a message for delivery to an honest validator just before a certain point in time. Moreover, it assumes that (iii) honest validators cannot *quickly* update each other about messages they have just received.
 
@@ -1343,7 +1343,7 @@ Finally, for epoch $2$ and beyond the adversary repeats its actions of epoch $1$
 
 #### (Part Of The) Solution: Proposer Weight Boosting
 
-The balancing attack just presented is based on the fact that an attacker, by manipulating the network, can create a disagreement at the end of each slot regarding which messages count for the fork choice, and therefore a disagreement on which chain is the winning chain.
+The balancing attack just presented is based on the fact that an attacker, by manipulating the network, can create a disagreement at the end of each slot regarding which messages count for the fork-choice, and therefore a disagreement on which chain is the winning chain.
 
 [The proposed solution](https://notes.ethereum.org/@vbuterin/lmd_ghost_mitigation) to avoid the balancing attack is to increase the *attestation weight* of the proposer of a block in a given slot, if some conditions are met. In details, let us assume that all the attesters assigned to slot 
 $i$, i.e., validators in the committee that cast attestations in slot $i$, have collective total weight $W$. Then, the proposer in slot $i+1$ is expected to make a proposal immediately at the start of its slot. Its proposal implicitly chooses a particular chain. In this way, attesters of slot $i+1$, if they see the proposal arriving before $\frac{1}{3}$ of the way into a slot, they treat that proposal as equivalent to an attestation with weight $\frac{W}{4}$. Observe that this attestation weight for the proposer is valid only for slot $i+1$; after that, this weight is reverted.
@@ -1365,7 +1365,7 @@ def on_block(store: Store, signed_block: SignedBeaconBlock) -> None:
 
 ...
 ```
-Recall that `on_block` runs whenever a `SignedBeaconBlock` is received, updating the `store` for the fork choice rule.
+Recall that `on_block` runs whenever a `SignedBeaconBlock` is received, updating the `store` for the fork-choice rule.
 
 </details>
 
@@ -1402,15 +1402,15 @@ It is worth noting that, by assumption, if a message is received by an honest va
 
 We present the notion of *equivocation discounting*, a solution to the attack presented in the section right above. On a high level, with equivocation discounting, we rely on every validator eventually recognizing equivocations and discarding them by stopping to give them weight. Formally, we require:
 
-* **Fork choice discounting**: When a validator $v_i$ runs HLMD-GHOST at slot $t$, it only counts votes from eligible validators $v_j$s for which the view of $v_i$ contains at most a single vote for each slot $v_j$s voted for, i.e., which are not viewed to have equivocated at previous slots.
+* **fork-choice discounting**: When a validator $v_i$ runs HLMD-GHOST at slot $t$, it only counts votes from eligible validators $v_j$s for which the view of $v_i$ contains at most a single vote for each slot $v_j$s voted for, i.e., which are not viewed to have equivocated at previous slots.
 
-In other words, we discard equivocating attestations from the fork choice, and *discount*, i.e., do not consider the weight of, all future votes of equivocating validators for fork choice purposes. Together with the LMD rule, the protocol considers only each validator’s most recent vote (or *attestation*) and, among them, only the non-equivocating ones. 
+In other words, we discard equivocating attestations from the fork-choice, and *discount*, i.e., do not consider the weight of, all future votes of equivocating validators for fork-choice purposes. Together with the LMD rule, the protocol considers only each validator’s most recent vote (or *attestation*) and, among them, only the non-equivocating ones. 
 
 Finally, observe that if a Byzantine validator $v_i$ equivocates, eventually every honest validator will have evidence that $v_i$ equivocated. This implies that, eventually, every equivocating validator $v_i$ will be *discovered* by every honest validator, and these equivocations will be used to slash $v_i$.
 
 <details><summary>Equivocation Discounting</summary>
 
-Remove equivocating validators from fork choice consideration: [https://github.com/ethereum/consensus-specs/pull/2845]
+Remove equivocating validators from fork-choice consideration: [https://github.com/ethereum/consensus-specs/pull/2845]
 
 
 ```python
@@ -1492,7 +1492,7 @@ Honest nodes now build on $6 \rightarrow 5 \rightarrow 4 \rightarrow 3 \rightarr
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_8471a94e1ff220ca780db1f60be2686b.png)
 
-Observe that, through equivocation discounting, this attack can no longer be placed. Equivocating blocks are not considered during the fork choice.
+Observe that, through equivocation discounting, this attack can no longer be placed. Equivocating blocks are not considered during the fork-choice.
 
 #### Problem: Ex-Ante Reorg
 
@@ -1500,7 +1500,7 @@ A reorg is an event where a block that was part of the canonical chain becomes n
 The maliciously occurrency of reorgs are instead caused by an adversary who seeks to exploit reorgs for its own gain. This enables attacks like double-spending or front-running.  
 Reorgs can be classified in two categories: *ex post reorgs*, i.e., an adversary observes a block which subsequently attempts to fork out, and *ex ante reorgs*, i.e., an adversary attempts to fork out a future block that is unknown to the adversary at the start of the attack.
 
-*Finality is a situation where a fork choice rule so strongly favors a block that it is mathematically impossible, or economically infeasible for that block to get reorged. In some fork choice rules, reorgs cannot happen; the fork choice rule simply extends the existing chain by appending any blocks that have been finalized through consensus. In other fork choice rules, reorgs are very frequent.* [https://www.paradigm.xyz/2021/07/ethereum-reorgs-after-the-merge]
+*Finality is a situation where a fork-choice rule so strongly favors a block that it is mathematically impossible, or economically infeasible for that block to get reorged. In some fork-choice rules, reorgs cannot happen; the fork-choice rule simply extends the existing chain by appending any blocks that have been finalized through consensus. In other fork-choice rules, reorgs are very frequent.* [https://www.paradigm.xyz/2021/07/ethereum-reorgs-after-the-merge]
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_5a39c227f23713121e7e5a8f59e04d95.png)
 
@@ -1528,22 +1528,24 @@ The idea behind the view-merge is to join the view of the honest proposer with t
 The general concept of view-merge is the [following](https://ethresear.ch/t/view-merge-as-a-replacement-for-proposer-boost/13739):
 
 * Attesters freeze their view $\Delta$ seconds before the beginning of a new slot, caching new messages for later processing. (*Note that, currently, the duration of a slot in Gasper is $3\Delta$, with $\Delta$ be the message delay. In particular, the slot is divided into $3$ parts of $4$ seconds each: $4$ seconds to propose a block, $4$ seconds to attest, and $4$ seconds to aggregate the attestations.*)
-* The proposer, instead, does not freeze its view, and proposes, based on its view, on top of the head of the chain at the beginning of its slot. Moreover, the proposer references all attestations and blocks it used in its fork choice in some point-to-point message, which is propagated with the block.
+* The proposer, instead, does not freeze its view, and proposes, based on its view, on top of the head of the chain at the beginning of its slot. Moreover, the proposer references all attestations and blocks it used in its fork-choice in some point-to-point message, which is propagated with the block.
 * Attesters include the referenced attestations in their view, and attest based on the *merged view*.
 
-If the network delay is less that $\Delta$, then every honest validator receives all the same messages. This implies that the view of the proposer is a superset of the frozen views of other validators. So, the final merged view is equal to the view of the proposer. Moreover, if the output of the fork choice is a function of a view, then every honest validator has the same fork choice output. As a consequence, honest validators attest to honest proposals. 
+If the network delay is less that $\Delta$, then every honest validator receives all the same messages. This implies that the view of the proposer is a superset of the frozen views of other validators. So, the final merged view is equal to the view of the proposer. Moreover, if the output of the fork-choice is a function of a view, then every honest validator has the same fork-choice output. As a consequence, honest validators attest to honest proposals. 
 
 
 ##### Goldfish
 
 In this section we present [Goldfish](https://arxiv.org/pdf/2209.03255.pdf), a simplified variant of LMD-GHOST, introduced by D'Amato *et al.*, that implements the notions of view-merge and equivocation discounting. Goldfish can tolerate dynamic participation, it supports subsampling of validators (at each slot, the protocol can pseudo-randomly select a small group of validators to run the protocol on behalf of the total validator set), and it is provably secure and reorg resilient in synchronous networks with dynamic participation, assuming a majority of the validators follows the protocol honestly. Finally, Goldfish implements the notion of *vote expiry*, i.e., during each slot only votes from the immediately preceding slot influence the protocol’s behavior.
 
-Goldfish implements a variant of GHOST, for the fork choice rule, called **GHOST-Eph**. GHOST-Eph is a function that *takes a view $G$ and slot $t$ as input, and finds the canonical GHOST-Eph chain determined by the votes within $G$ that were cast for slot $t$. More specifically, starting at the genesis block, the function iterates over a sequence of blocks from $G$, selecting as the next block, the child of the current block with the maximum number of validators that have cast a slot $t$ vote for a block within its subtree. This continues until it reaches a leaf of the block-tree, and outputs a complete chain from leaf to root. The fork choice rule ignores votes from before slot $t$ in its decision (votes are ephemeral), lending GHOST-Eph its name.* [https://arxiv.org/pdf/2209.03255.pdf]
+The adversary decides for each round and each honest validator whether it is asleep or not. Asleep validators do not execute the protocol. Messages delivered to an asleep validator get delivered to it only once the validator is no longer asleep. When a validator stops being asleep, it becomes *dreamy*. During this phase, it joins the protocol, usually over multiple rounds, using a special *joining procedure* specified by the protocol. Upon completion of this procedure, the honest validator becomes *awake* and then follows the the protocol. Adversarial validators are always awake. 
+
+Goldfish implements a variant of GHOST, for the fork-choice rule, called **GHOST-Eph**. GHOST-Eph is a function that *takes a view $G$ and slot $t$ as input, and finds the canonical GHOST-Eph chain determined by the votes within $G$ that were cast for slot $t$. More specifically, starting at the genesis block, the function iterates over a sequence of blocks from $G$, selecting as the next block, the child of the current block with the maximum number of validators that have cast a slot $t$ vote for a block within its subtree. This continues until it reaches a leaf of the block-tree, and outputs a complete chain from leaf to root. The fork-choice rule ignores votes from before slot $t$ in its decision (votes are ephemeral), lending GHOST-Eph its name.* [https://arxiv.org/pdf/2209.03255.pdf]
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_d1fc611e1f14b29644a8b23a3828e09e.png)
 
 
-*Slots in Goldfish have a duration of $3\Delta$ rounds. At the beginning of slot $t$, i.e., at round $3\Delta t$, each awake honest validator $v_i$ checks if it is eligible to propose a block for slot $t$, i.e., if $v_i$ is a leader for slot $t$, by evaluating the verifiable random function (VRF) with secret key $\mathscr{vsk}$. If $v_i$ is the leader for slot $t$, then $v_i$ identifies the tip of its canonical GHOST-Eph chain using the slot $t-1$ votes in its view, and it broadcasts a proposal message containing (i) a new block extending the tip and (ii) the union of its view and buffer, $G \cup \mathcal{B}$.* (Observe that the buffer $\mathcal{B}$ is distinct from the validator’s view $G$, the evergrowing set of messages used to make consensus decisions. Buffered messages are admitted to the view (merged) only at specific points in time.)* *At round $3\Delta t + \Delta$, among the proposal messages received for slot $t$, each honest awake validator selects the one with the minimum VRF output, and accepts the block contained in the message as the proposal block for slot $t$. Moreover, validator $v_j$ merges its view with that of the proposal message. Then, with its VRF secret key $\mathscr{vsk}$, $v_j$ checks if it is eligible to vote for a block at slot $t$. If that is the case, $v_j$ identifies the new tip of its canonical GHOST-Eph chain using the slot $t − 1$ votes in its updated view, and broadcasts a slot $t$ vote for this tip.*
+*Slots in Goldfish have a duration of $3\Delta$ rounds. At the beginning of slot $t$, i.e., at round $3\Delta t$, each awake honest validator $v_i$ checks if it is eligible to propose a block for slot $t$, i.e., if $v_i$ is a leader for slot $t$, by evaluating the verifiable random function (VRF) with secret key $\mathscr{vsk}$. If $v_i$ is the leader for slot $t$, then $v_i$ identifies the tip of its canonical GHOST-Eph chain using the slot $t-1$ votes in its view, and it broadcasts a proposal message containing (i) a new block extending the tip and (ii) the union of its view and buffer, $G \cup \mathcal{B}$.* (Observe that the buffer $\mathcal{B}$ is distinct from the validator’s view $G$, the evergrowing set of messages used to make consensus decisions. Buffered messages are admitted to the view (merged) only at specific points in time.) *At round $3\Delta t + \Delta$, among the proposal messages received for slot $t$, each honest awake validator selects the one with the minimum VRF output, and accepts the block contained in the message as the proposal block for slot $t$. Moreover, validator $v_j$ merges its view with that of the proposal message. Then, with its VRF secret key $\mathscr{vsk}$, $v_j$ checks if it is eligible to vote for a block at slot $t$. If that is the case, $v_j$ identifies the new tip of its canonical GHOST-Eph chain using the slot $t − 1$ votes in its updated view, and broadcasts a slot $t$ vote for this tip.*
 
 *At round $3\Delta t + 2\Delta$, each honest awake validator $v_j$ merges its buffer $\mathcal{B}$ containing the votes received over the period $(3\Delta t + \Delta, 3\Delta t + 2\Delta]$ with its view $G$. Then, $v_j$ identifies the new tip of its canonical GHOST-Eph chain using the slot $t$ votes in its updated view, takes the prefix of this chain corresponding to blocks from slots $\le t-\kappa$, and outputs this confirmed prefix as the Goldfish ledger.*
 
@@ -1564,8 +1566,38 @@ Finally, three-fourths into the slot, all awake validators again merge their buf
 Goldfish guarantees the following properties, and the proof can be found in the [full paper](https://arxiv.org/pdf/2209.03255.pdf).
 
 * **Reorg resilience**: Suppose the validator that has the proposal with the minimum VRF output within a slot is an honest validator. Then, the block proposed by that validator enters and stays in the canonical GHOST-Eph chain adopted by any honest validator at all future slots.
-* **Security**: Goldfish satisfies $T_{\text{conf}}$-security for $T_{\text{conf}} = \kappa$ slots with overwhelming probability.
+* **Dynamic availability**: Under a synchronous network in the sleepy model (i.e., for GST $= 0$), the ledger output by Goldfish provides $\frac{1}{2}$-safety and $\frac{1}{2}$-liveness at all times with overwhelming probability.
 
-Observe that $T_{\text{conf}}$ is a polynomial function of a security parameter $\kappa$. Moreover, a state machine replication protocol that outputs a ledger $\mathscr{ch}$ is $T_{\text{conf}}$-secure after time $T$, and has transaction confirmation time $T_{\text{conf}}$, if $\mathscr{ch}$ satisfies **Safety** : For any two rounds $t, t′ \ge T$, and any two honest validators $v_i$ and $v_j$ (possibly $i = j$) awake at rounds $t$ and $t′$ respectively, either ledger $\mathscr{ch}_i^t$ is the same as, or a prefix of $\mathscr{ch}_j^{t'}$ or vice-versa; and **Liveness**: If a transaction is received by an awake honest validator at some round $t \ge T$, then for any round $t′ \ge t + T_{\text{conf}}$ and any honest validator $v_i$ awake at round $t'$, the transaction will be included in $\mathscr{ch}_{t'}^i$.
+Observe that $T_{\text{conf}}$ is a polynomial function of a security parameter $\kappa$. Moreover, a state machine replication protocol that outputs a ledger $\mathscr{ch}$ is $T_{\text{conf}}$-secure after time $T$, and has transaction confirmation time $T_{\text{conf}}$, if $\mathscr{ch}$ satisfies **Safety** : For any two rounds $t, t′ \ge T$, and any two honest validators $v_i$ and $v_j$ (possibly $i = j$) awake at rounds $t$ and $t′$ respectively, either ledger $\mathscr{ch}_i^t$ is the same as, or a prefix of $\mathscr{ch}_j^{t'}$ or vice-versa; and **Liveness**: If a transaction is received by an awake honest validator at some round $t \ge T$, then for any round $t′ \ge t + T_{\text{conf}}$ and any honest validator $v_i$ awake at round $t'$, the transaction will be included in $\mathscr{ch}_{t'}^i$. Ahe protocol satisfies $\frac{1}{2}$-safety ($\frac{1}{2}$-liveness) if it satisfies safety (liveness) if the fraction of adversarial validators is bounded above away from $\frac{1}{2}$ for all rounds.
 
 Despite the security guarantees ensured by Goldfish, vote expiry as it is in this protocol leads to some problems. In particular, blocks in Goldfish do not accumulate safety against asynchrony as time goes on. This is because vote expiry after one slot means that *Goldfish cannot tolerate a single slot in which all honest validators are asleep or in which they cannot hear from the other honest validators due to adversarially induced network delay.* [https://arxiv.org/pdf/2209.03255.pdf]
+
+##### RLMD-GHOST
+
+Goldfish is not considered practically viable to replace LMD-GHOST in Ethereum, due to its brittleness to temporary asynchrony: even a single slot of asynchrony can lead to a catastrophic failure, jeopardizing the safety of any previously confirmed block. 
+
+D'Amato and Zanolini introduce [Recent Latest Message Driven GHOST](https://arxiv.org/pdf/2302.11326.pdf) (RLMD-GHOST), a protocol that generalizes both LMD-GHOST and Goldfish. As the former, RLMD-GHOST implements the latest message rule (LMD). As the latter, it implements view-merge and vote expiry. Differently from Goldfish, where only votes from the most recent slot are considered, RLMD-GHOST is parameterized by a *vote expiry period $\eta$*, i.e., only messages from the most recent $\eta$ slots are utilized. For $\eta = 1$, RLMD-GHOST reduces to Goldfish, and for $\eta = \infty$ to (a more secure variant of the original) LMD-GHOST.
+
+D'Amato *et al.* introduce with Goldfish the notion of active validator (there, validators which have completed the joining protocol are simply called *awake*, and validators which are executing the joining protocol are called *dreamy*} and assume a modified condition, i.e,, $h_{r - 3\Delta} > f_{r}$, with $h_r$ the number of honest validators that are active at round $r$ and with $f_r$ the number of adversarial validators at round $r$. In this condition, that is tailored for their protocol, Goldfish, $h_{r-3\Delta}$ is considered instead of $h_r$ because, if $r$ is a voting round in Goldfish, validators corrupted after round $r$ can still retroactively cast votes for that round, which (votes) are relevant until $3\Delta$ rounds later. In practice, all that is required is that $h_{3\Delta (t-1) + \Delta} > f_{3\Delta t + \Delta}$ for any \emph{slot} $t$, i.e., the condition only needs to hold for *voting rounds*.
+
+[D'Amato and Zanolini](https://arxiv.org/pdf/2302.11326.pdf) follow this distinction between awake and active validators, and use $H_t$ and $A_t$, for a slot $t$, to refer to the set of active and adversarial validators at round $3\Delta t + \Delta$, respectively. Moreover, $H_{s, t}$ denote the set of validators that are active *at some point* in slots $[s,t]$, i.e., $H_{s,t} = \bigcup_{i=s}^t H_i$ (if $i < 0$ then $H_i = \emptyset$). Then, for some fixed parameter $1\leq \tau \leq \infty$, the following condition, which is referred to as *$\tau$-sleepiness at slot $t$*, holds for any slot $t$ after GST:
+$$|H_{t-1}| > |A_{t} \cup (H_{t-\tau, t-2}\setminus H_{t-1})|.$$
+
+The sleepy model in which the adversary is constrained by $\tau$-sleepiness after GST is called the *$\tau$-sleepy model*. Note that, for $\tau = 1$, this reduces to the sleepy model from Goldfish, as this condition reduces to the majority condition $h_{r - 3\Delta} > f_{r}$ of Goldfish for voting rounds $r = 3\Delta t + \Delta$, because $H_{t-1, t-2} = \emptyset$. 
+
+RLMD-GHOST is implemented in the *$\tau$-sleepy model*, which allows for more generalized and stronger constraints in the corruption and sleepiness power of the adversary. In other words, the honest validators that are actively participating in the consensus protocol at slot $t$ are always more than the adversarial validators together with the honest validators that actively participated in the protocol during *some* slots before $t$ and that now, at slot $t$, are not anymore participating (i.e., we count them as adversarial). For instance, in LDM-GHOST, *some slots before $t$* translates into *every slot starting from the genesis*, while for Goldfish this transaltes into *one slot before $t$*.
+
+RLMD-GHOST proceeds in *slots* consisting of $3\Delta$ rounds, each having a proposer $v_p$, chosen through a proposer selection mechanism among the set of validators. In particular, at the beginning of each slot $t$, the proposer $v_p$ proposes a block $B$. Then, all active validators vote after $\Delta$ rounds for block, after having merged their *view* with the view of the proposer. Moreover, every validator $v_i$ has a buffer $\mathcal{B}_i$, a collection of messages received from other validators, and a view $G_i$, used to make consensus decisions, which admits messages from the buffer only at specific points in time, i.e., during the last $\Delta$ rounds for a slot. The need for a buffer is to prevent [some attacks](https://ethresear.ch/t/view-merge-as-a-replacement-for-proposer-boost/13739). RLMD-GHOST is characterized through a deterministic fork-choice rule **RLMD-GHOST**, which is used by honest proposers and voters to decide how to propose and vote, respectively, based on their view at the round in which they are performing those actions. In particular, the fork-choice rule that D'Amato and Zanolini implement considers the last (non equivocating) messages sent by validators that are not older than $t − \eta$ slots, in order to make protocol’s decisions.
+
+![](https://storage.googleapis.com/ethereum-hackmd/upload_c9bd10390b3a1725af24075df9ecb460.png)
+
+RLMD-GHOST results in a synchronous protocol that has interesting practical properties: it is dynamically available and reorg resilient in the *$\tau$-sleepy model*, assuming that the honest validators that are actively participating in the consensus protocol at slot $t$ are always more than the adversarial validators (that actively participate in the protocol) together with the validators that actively participated in the protocol during $\eta$ slots before $t$ and that now, at slot $t$, are not anymore participating (i.e., we count them as adversarial). Moreover, RLMD-GHOST is resilient to asynchronous periods lasting less than $\eta-1$ slots. 
+
+As one can observe, both RLMD-GHOST and Goldfish (and also LMD-GHOST) have the same structure: first there is a proposing phase, then a voting phase, and finally a merge phase. [D'Amato and Zanolini](https://arxiv.org/pdf/2302.11326.pdf) generalize this structure by defining *propose-vote-merge* protocols. These are protocols that proceed in *slots* consisting of *k* rounds, each having a proposer $v_p$, chosen through a proposer selection mechanism among the set of validators. In particular, at the beginning of each slot $t$, the proposer $v_p$ proposes a block $B$. Then, all active validators vote after $\Delta$ rounds. The last $\Delta$ rounds of the slot are needed for the *view-merge* synchronization technique. Propose-vote-merge protocols are defined through a deterministic fork-choice rule $FC$, which is used by honest proposers and voters to decide how to propose and vote, respectively, based on their view at the round in which they are performing those actions (in the case of Goldfish, the fork-choice rule is **GHOST-Eph**, while in the case of RLMD-GHOST the fork-choice rule is **RLMD-GHOST**). A propose-vote-merge protocol proceeds in three phases:
+
+**Propose**: In this phase, which starts at the beginning of a slot, the proposer $v_p$ merges its view $G_p$ with its buffer $\mathcal{B}_p$, i.e., $G_p \gets G_p \cup \mathcal{B}_p$, and sets $\mathcal{B}_p \gets \emptyset$. Then, $v_p$ runs the fork-choice rule $FC$ with inputs its view $G_p$ and slot $t$, obtaining the head of the chain $B' = FC(G_p, t)$. Proposer $v_p$ extends $B'$ with a new block $B$, and updates its canonical chain accordingly. Finally, it broadcasts the proposal message to every validator.
+
+**Vote**: Here, every validator $v_i$ that receives a proposal message from $v_p$ merges its view with the proposed view $G$, by setting $G_i \gets G_i \cup G$. Then, it broadcasts votes for some blocks based on its view. 
+
+**Merge**: In this phase, every validator $v_i$ merges its view with its buffer, i.e., $G_i \gets G_i \cup \mathcal{B}_i$, and sets $\mathcal{B}_i \gets \emptyset$.
+
