@@ -1601,3 +1601,59 @@ As one can observe, both RLMD-GHOST and Goldfish (and also LMD-GHOST) have the s
 
 **Merge**: In this phase, every validator $v_i$ merges its view with its buffer, i.e., $G_i \gets G_i \cup \mathcal{B}_i$, and sets $\mathcal{B}_i \gets \emptyset$.
 
+
+#### Path towards single slot finality
+
+Currently, Gasper takes between 64 and 95 slots to finalize blocks. Because of that, a significant portion of the chain is susceptible to reorgs. The possibility to capture MEV (Maximum Extractable Value) through such reorgs can then disincentivize honestly following the protocol, breaking the desired correspondence of honest and rational behavior. Moreover, the relatively long time to finality forces users to choose between economic security and faster transaction confirmation. This motivates the study of the so-called [single slot finality](https://notes.ethereum.org/@vbuterin/single_slot_finality) protocols: consensus protocols that finalize a block in each slot and, more importantly, that finalize the block proposed at a given slot within such slot. A relevant video about single slot finality by Vitalik Buterin can be found [here](https://www.youtube.com/watch?v=nPgUKNPWXNI).
+
+[D'Amato and Zanolini](https://arxiv.org/pdf/2302.12745.pdf) propose a protocol that combines [RLMD-GHOST](https://arxiv.org/pdf/2302.11326.pdf) with a finality gadget, resulting in a secure ebb-and-flow protocol that can finalize one block per slot. Importantly, the protocol they present can finalize the block proposed in a slot, within such slot.
+
+Differently from the version of RLMD-GHOST presented above, here RLMD-GHOST proceeds in slots consisting of $4\Delta$ rounds with *fast confirmation*, as summarized in the following figure.
+
+
+![](https://storage.googleapis.com/ethereum-hackmd/upload_a10b50c733bf14bce0601677475c3227.png)
+
+
+
+In the figure above, head-votes represent votes cast with respect to RLMD-GHOST protocol, i.e., the dynamically available protocol/component. To be more specific, a head vote is a tuple [HEAD-VOTE, $B$, $t$, $v$], where $B$ is a block, $t$ is the slot in which the vote is cast, and $v$ is the validator that cast the vote. The single slot finality protocol presented by D'Amato and Zanolini introduces a new type of vote, i.e., the FFG vote. In particular, FFG vote is a tuple [FFG-VOTE, $\mathcal{C}_1$, $\mathcal{C}_2$, $v$], where $\mathcal{C}_1, \mathcal{C}_2$ are checkpoints, with $\mathcal{C}_1.t < \mathcal{C}_2.t$, and $\mathcal{C}_1.B$ is a prefix of  $\mathcal{C}_2.B$. These two checkpoints are referred to as *source* and *target*, respectively, following the notation of Gasper, and to FFG votes as *links* between source and target. The FFG component of the SSF protocol presented by D'Amato and Zanolini takes inspiration from Casper and aims at finalizing one block per slot by counting ffg votes cast at a given slot.
+
+A checkpoint is justified in a view $G$ if $G$ contains the chain of supermajority links justifying it. The justified checkpoint $\mathcal{C}$ of highest slot $\mathcal{C}.t$ in $G$ is referred, as in Gasper, as the *latest justified checkpoint* in $G$, or $\mathcal{LJ}(G)$, and to $\mathcal{LJ}(G).B$ as the *latest justified block* in $G$, or $LJ(G)$. Ties are broken arbitrarily, and the occurrence of a tie implies that $\frac{n}{3}$ validators are slashable for equivocation. For brevity, $\mathcal{LJ}_i$ refers to $\mathcal{LJ}(G)$, the latest justified checkpoint in the view $G_i$ of validator $v_i$. A checkpoint $\mathcal{C}$ is *finalized* if it is justified and there exists a supermajority link $\mathcal{C} \to \mathcal{C}'$ with $\mathcal{C}'.t = \mathcal{C}.t + 1$. A block $B$ is finalized if there exists a finalized checkpoint $\mathcal{C}$ with $B = \mathcal{C}.B$.
+
+In the protocol by D'Amato and Zanolini, head votes work exactly as in RLMD-GHOST, or any propose-vote-merge protocol, i.e., validators vote for the output of their fork-choice rule: when it is time to vote, validator $v_i$ casts vote [HEAD-VOTE, $FC(G_i, t), t, v_i$]. Here, the fork-choice rule adopted is the same as **RLMD-GHOST**, with the only difference that the view $G_i$ has filtered out branches which do not contain $LJ(G)$, the latest justified block.
+FFG votes always use the latest justified checkpoint as source. The target block is the highest confirmed descendant of the latest justified block, or the latest justified block itself if there is none. The target checkpoint is then $\mathcal{C}_{\text{target}} = (\text{argmax}_{B \in \{LJ_i, \mathsf{chAva}\}}|B|,t)$, and the FFG vote of $v_i$ is [FFG-VOTE, $\mathcal{LJ}_i, \mathcal{C}_{\text{target}}, v_i$], voting for the link $\mathcal{LJ}_i \to \mathcal{C}_{\text{target}}$. Here, $\mathsf{chAva}$ is the dynamic available chain output by the RLMD-GHOST protocol.
+
+Finally, a slot in the SSF protocol follows this structure
+
+
+![](https://storage.googleapis.com/ethereum-hackmd/upload_1a16703284c9e5bbee32e7ed2f12c31e.png)
+
+
+When a proposer is honest, the network is synchronous, and an honest supermajority is online, the outcome is that the proposal gets fast confirmed and then justified, before the end of the slot. Moreover, if honest validators see the justification before the next slot, they will never cast an FFG vote with an earlier source, and so the proposal will never be reorged, even if later the network becomes asynchronous.
+
+The SSF protocol is implemented by the following algorithm
+
+
+![](https://storage.googleapis.com/ethereum-hackmd/upload_4d64cf1953a3d35c3ec65c893baa609f.png)
+
+
+
+##### Acknowledgments
+
+In this protocol, *blocks proposed by honest proposers under good conditions have very strong reorg resilience guarantees. On the other hand, their unreorgability is not known to observers by the end of the slot, and moreover no economic penalty can yet be ensured in case of a reorg, so we rely at this point on honesty assumptions. Finality is only achieved at the earliest after two slots. In order to truly have single slot finality, in the sense that an honest proposal can be finalized (and is finalized, under synchrony) within its proposal slot, then another FFG voting round can be added, or, as D'Amato and Zanolini decided to do in the paper, validators send a different type of message acknowledging the justification. For example, if the checkpoint $(B,t)$ is justified at slot $t$, validators can send the acknowledgment message $((B,t), t)$, confirming their knowledge of the justification of $(B,t)$. This way, they signal that in future slots they will never cast an FFG vote with a source from a slot earlier than $t$. A slashing condition can be attached to this, almost identical to surround voting: it is slashable to cast an acknowledgment $((C,t),t)$ and an FFG vote $(A,t') \to (B,t'')$ with $t' < t < t''$, i.e., where the FFG vote surrounds the acknowledged checkpoint. Then, if 2/3 of the validators cast an acknowledgment, one can finalize the acknowledged checkpoint.* [https://ethresear.ch/t/a-simple-single-slot-finality-protocol/14920]
+
+The complete protocol is then the following
+
+![](https://storage.googleapis.com/ethereum-hackmd/upload_e8affaa7f175741ad22bbd3abc9b82a9.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
