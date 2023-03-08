@@ -232,7 +232,7 @@ A vote message consists of four fields: two blocks (called in the context of Cas
 
 *For the rest of this document, when we say “$\frac{2}{3}$ of validators”, we are referring to the deposit-weighted fraction; that is, a set of validators whose sum deposit size equals to $\frac{2}{3}$ of the total deposit size of the entire set of validators.*
 
-Once a vote $⟨v_i, a, b, h(a), h(b)⟩$ has been cast by $\frac{2}{3}$ of validators and the checkpoint $a$ is justified (and the notion of *supermajority link* is defined as an ordered pair $(a,b),$ such that $\frac{2}{3}$ of validators have broadcast votes with source $a$ and target $b$), the checkpoint $b$ becomes justified. Finally, the checkpoint $b$ is finalized if $b$ is justified and at least $\frac{2}{3}$ of validators broadcast a vote $⟨v_i, b, c, h(b), h(c)⟩$, with $h(c)=h(b)+1.$ Observe that votes can skip checkpoints, i.e., given a vote $⟨v_i, a, b, h(a), h(b)⟩$, it is permitted to have $h(b) > h(a) + 1$.
+Once a vote $⟨v_i, a, b, h(a), h(b)⟩$ has been cast by $\frac{2}{3}$ of validators and the checkpoint $a$ is justified (and the notion of *supermajority link* is defined as an ordered pair $(a,b),$ such that $\frac{2}{3}$ of validators have broadcast votes with source $a$ and target $b$), the checkpoint $b$ becomes justified. Finally, the checkpoint $b$ is finalized if $b$ is justified and at least $\frac{2}{3}$ of validators broadcast a vote $⟨v_i, b, c, h(b), h(c)⟩$, with $h(c)>=h(b)+1.$ Observe that votes can skip checkpoints, i.e., given a vote $⟨v_i, a, b, h(a), h(b)⟩$, it is permitted to have $h(b) > h(a) + 1$.
 
 Let $⟨v_i, s_1, t_1, h(s_1), h(t_1)⟩$ and $⟨v, s_2, t_2, h(s_2), h(t_2)⟩$ be two voted cast by validator $v_i$. Then, it must not be that either:
 
@@ -277,7 +277,7 @@ $$\mathcal{V}_f(d) ≡ \{v_i : DS(v_i) \le d < DE(v_i)\}, $$
 $$\mathcal{V}_r(d) ≡ \{v_i : DS(v_i) < d \le DE(v_i)\}.$$
 
 This implies a new way to define the notion of justified and finalized checkpoints. In particular, an ordered pair of checkpoints $(s,t)$, where $t$ is in dynasty $d$, has a supermajority link if *both* at least $\frac{2}{3}$ of validators of the forward validator set of dynasty $d$ have broadcast votes $(s,t)$ *and* at least $\frac{2}{3}$ of validators of the rear validator set of dynasty $d$ have broadcast votes $(s,t)$.
-Previously, a checkpoint $c$ was called finalized if $c$ is justified and there is a supermajority link $(c,c')$ with $h(c')=h(c)+1$. Now it is added the condition that $c$ is finalized if only if the votes for the supermajority link $(c,c')$, as well as the supermajority link justifying $c$, are included in $c′$’s block-tree and before the child of $c′$.
+Previously, a checkpoint $c$ was called finalized if $c$ is justified and there is a supermajority link $(c,c')$ with $h(c')>=h(c)+1$. Now it is added the condition that $c$ is finalized if only if the votes for the supermajority link $(c,c')$, as well as the supermajority link justifying $c$, are included in $c′$’s block-tree and before the child of $c′$.
 
 
 #### LMD-GHOST
@@ -322,7 +322,7 @@ Due to network delays and Byzantine validators, validators may have different se
 Each message may have one or more dependencies, where each dependency is another message. At any time, a validator *accepts a message* if and only if all of its dependencies are accepted, defined recursively. 
 A *view* of a validator $v_i \in \mathcal{V}$ at a given time $t$, denoted as $\mathscr{view}(v_i, t)$, is the set of all the accepted messages that $v_i$ has seen so far. A *God’s-eye-view* is the set of accepted messages for a hypothetical validator that has seen (with no latency) all messages any validator has broadcast at any time (this includes messages sent by a Byzantine validator to only a subset of the network).
 
-Finally, given a view $G$ (*Since usually one talks about a specific point in time, the time can be suppressed and a notation such as $\mathscr{view}(v_i)$ (or, to simplify the notation, $G$) can be used to talk about $\mathscr{view}(v_i,t)$.*), let $M$ be the set of latest attestations, one per validator. The weight $w(G,B,M)$ is defined to be the sum of the stake of the validators whose last attestation in $M$ is to $B$ or descendants of $B.$
+Finally, given a view $G$ (*Since usually one talks about a specific point in time, the time can be suppressed and a notation such as $\mathscr{view}(v_i)$ (or, to simplify the notation, $G$) can be used to talk about $\mathscr{view}(v_i,t)$.*), let $M$ be the set of latest attestations, one per validator. The weight $w(G,B',M)$ is defined to be the sum of the stake of the validators whose last attestation in $M$ is to $B$ or descendants of $B.$
 
 The following algorithm implements the LMD-GHOST fork-choice rule.
 
@@ -442,7 +442,7 @@ However, a block could be an epoch boundary block in some chains but not others.
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_b9d78fc7c37d93db2c139d73279a33e9.png)
 
-In the image above, $\mathscr{aep}(63, 1)$ and $\mathscr{ep}(63) = 0$.
+In the image above, $\mathscr{aep}(63, 1) = 1$ and $\mathscr{ep}(63) = 0$.
 
 Finally, observe that, in Gasper, instead of justifying and finalizing checkpoint blocks as with Casper, epoch boundary pairs are justified and finalized.
 
@@ -863,7 +863,7 @@ For the second part, (# Process finalizations), observe that a $2$-finalization 
 
 In `weigh_justification_and_finalization`,
 
-* the first condition reflects on requiring that `old_previous_justified_checkpoint.epoch + 3 == current_epoch` and `old_previous_justified_checkpoint.epoch + 2 == current_epoch`;
+* the first condition reflects on requiring that `old_previous_justified_checkpoint.epoch + 3 == current_epoch` and `old_current_justified_checkpoint.epoch + 2 == current_epoch`;
 * the second condition reflects on requiring that `state.justification_bits[3]=state.justification_bits[2]=1`; and
 * the third condition reflects on requiring that `state.justification_bits[1]=1`. In particular, if `state.justification_bits[0]=state.justification_bits[1]=1` (from the justification process above) and if `state.justification_bits[3]=state.justification_bits[2]=1`, then the existence of supermajority links is implied. 
 
