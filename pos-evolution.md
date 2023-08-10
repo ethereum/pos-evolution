@@ -4,22 +4,21 @@
 
 In this document we present the evolution of the proof-of-stake consensus protocol of Ethereum, called **Gasper**, aiming at a self-contained reference for future study and research. 
 
-<details><summary>Implementation</summary>
-    
-    We include in boxes of this kind the (explained) implementation of the most relevant theoretical parts. Observe that the code showed for the implementation follows the [consensus pyspec](https://github.com/ethereum/consensus-specs), and is presented using Simple Serialize (SSZ), a serialization and merkleization standard created specifically for Ethereum consensus. This specification serves as a reference for consensus layer devs and is also used for creating the test case vectors for client teams. A tutorial on how to run the Ethereum consensus pyspec can be found [here](https://archive.devcon.org/archive/watch/6/how-to-use-executable-consensus-pyspec/?tab=YouTube), and an updated annotated specification can be found [here](https://eth2book.info/bellatrix/part3/).
-    
-   </details>
+:::    spoiler
+::: info
+We include in *spoiler boxes* of this kind the implementation of the most relevant theoretical parts. Observe that the code showed for the implementation follows the consensus pyspec [https://github.com/ethereum/consensus-specs], and is presented using Simple Serialize (SSZ), a serialization and merkleization standard created specifically for Ethereum consensus. This specification serves as a reference for consensus layer devs and is also used for creating the test case vectors for client teams. A tutorial on how to run the Ethereum consensus pyspec can be found [here](https://archive.devcon.org/archive/watch/6/how-to-use-executable-consensus-pyspec/?tab=YouTube), and an updated annotated specification can be found [here](https://eth2book.info/bellatrix/part3/).
+:::
 
 
 #### Disclaimer 
 
-Since this document aims at grouping together all the most relevant resources concerning the proof-of-stake consensus protocol of Ethereum, some parts are just imported as they are in the original source. If this is the case, the text will be in *italic type* and the original reference is given.
+Since this document only aims at grouping together all the most relevant resources concerning the proof-of-stake consensus protocol of Ethereum, some parts are just imported as they are in the original source. If this is the case, the text will be in *italic type* and the original reference is given.
 
 #### Acknowledgments  
 
-Special thanks to Ittai Abraham, Aditya Asgaonkar, Francesco D'Amato, Tyler Holmes, Joachim Neu, and anonymous reviewers for feedback and helpful discussions.
+Special thanks to Ittai Abraham, Aditya Asgaonkar, Christian Cachin, Francesco D'Amato, Tyler Holmes, Joachim Neu, and anonymous reviewers for feedback and helpful discussions.
 
-The proof-of-stake consensus protocol of Ethereum, Gasper, evolved during the years. This is because attacks were found that undermined its properties and functioning. As a response to that, solutions were developed to cope with the problems. 
+The proof-of-stake consensus protocol of Ethereum evolved during the years. This is because attacks were found that undermined its properties and functioning. As a response to that, solutions were developed to cope with the problems. 
 
 In order to better understand the current implemented protocol, we start by presenting the [original version of it](https://arxiv.org/pdf/2003.03052.pdf), by Buterin *et al.*, highlighting its underlying components and properties. Then, we present the most relevant attacks and/or problems that have been discovered so far, and discuss solutions to them.
 
@@ -29,8 +28,7 @@ First, let us introduce the system model that will be used from now on.
 
 #### Validators
 
-We consider a system of $n$ *validators* $\mathcal{V} = \{v_1, \dots, v_n\}$ that communicate with each other through exchanging messages. Every validator is identified by a unique cryptographic identity and the public keys are common knowledge.
-
+We consider a system of $n$ *validators* $\mathcal{V} = \{v_1, \dots, v_n\}$ that communicate with each other through exchanging messages. Each message may have one or more *dependencies*, where each dependency is another message. At any time, a validator *accepts a message* if and only if all of its dependencies are accepted, defined recursively. We maintain a generic understanding of the term "message" at this point. A detailed characterization of these messages will be provided later. Every validator is identified by a unique cryptographic identity and the public keys are common knowledge.
 
 <details><summary>Validator</summary>
     
@@ -192,23 +190,27 @@ We assume that a best-effort gossip primitive that will reach all validators is 
 
 #### Time and sleepiness
 
-Time is divided into discrete *rounds* and the validators have synhronized clocks. We define the notion of *slot* as a collection of $k$ rounds, for a constant $k$. We are interested in the case $k=3\Delta$, so our presentation will assume this length for slots, unless otherwise specified. However, different values of $k$ can be considered. A collection of $C$ slots forms an *epoch*. The genesis block $B_{\text{genesis}}$, i.e., the first block in the blockchain, has slot number $0$ and is the first block of epoch $0$. Generally, blocks belonging to epoch $j$ have slot numbers $jC + k$ as $k$ runs through $\{0, 1, \ldots , C − 1\}$. The adversary $\mathcal{A}$ can decide for each round which honest validator is *awake* or *asleep* at that round. Asleep validators do not execute the protocol and messages for that round are queued and delivered in the first round in which the validator is awake again. [https://eprint.iacr.org/2016/918.pdf]
+Time is divided into discrete *rounds* and the validators have synchronized clocks. We define the notion of *slot* as a collection of $k$ rounds, for a constant $k$. We are interested in the case $k=3\Delta$, so our presentation will assume this length for slots, unless otherwise specified. However, different values of $k$ can be considered. A collection of $C$ slots forms an *epoch*. The genesis block $B_{\text{genesis}}$, i.e., the first block in the blockchain, has slot number $0$ and is the first block of epoch $0$. Generally, blocks belonging to epoch $j$ have slot numbers $jC + k$ as $k$ runs through $\{0, 1, \ldots , C − 1\}$. The adversary $\mathcal{A}$ can decide for each round which honest validator is *awake* or *asleep* at that round. Asleep validators do not execute the protocol and messages for that round are queued and delivered in the first round in which the validator is awake again. [https://eprint.iacr.org/2016/918.pdf]
+
+During each epoch, the set of validators is partitioned in (disjoint) *committees*, one committee per slot. More details about committees can be found few sections below.
 
 In a *synchronous network*, the message delay is upper-bounded by a constant $\Delta$ rounds, with $\Delta$ known to the protocol. Upon receiving a message, an honest validator broadcasts it, to ensure receipt by every honest validator within $\Delta$ rounds.
 
-In a *partially synchronous network* in the sleepy model, communication is asynchronous until a global stabilization time (GST), after which communication becomes synchronous, i.e., message delays are bounded by $\Delta$ rounds. Moreover, honest nodes sleep and wake up until a global awake time (GAT), after which all nodes are awake. Adversary nodes are always awake. [https://arxiv.org/pdf/2009.04987.pdf]
+In a *partially synchronous network* in the sleepy model, communication is asynchronous until a global stabilization time (GST), after which communication becomes synchronous, i.e., message delays are bounded by $\Delta$ rounds. Moreover, honest validators sleep and wake up until a global awake time (GAT), after which all validators are awake. Adversary validators are always awake. [https://arxiv.org/pdf/2009.04987.pdf]
 
+#### View
+
+A *view* (at a given round $r$), denoted by $G$, is a subset of all the messages that a validator has received until $r$. The notion of view is local for the validators. For this reason, when we want to focus the attention on a specific view of a validator $v_i$, we denote with $G_i$ the view of $v_i$ (at a round $r$). 
 
 ### Gasper
 
-**Gasper** is a proof-of-stake consensus protocol obtained by the combination of two modules: **FFG Casper**, a finality gadget, and (a variation of) **LMD-GHOST**, a fork-choice rule. The latter evolved during the years, due to some problems. 
+**Gasper** is a proof-of-stake consensus protocol obtained by the combination of two protocols: **FFG Casper**, a partially synchronous consensus protocol (or *gadget*), and a synchronous consensus protocol named **LMD-GHOST**. The latter evolved during the years, due to some problems. In the following sections, we present each protocol individually. Afterward, we demonstrate how the two interact with each other, culminating in the definition of Gasper.
 
 #### Friendly Finality Gadget (FFG) Casper
 
-**FFG Casper** is a partial consensus protocol atop a proposal mechanism, i.e., a mechanism which proposes blocks, that aims at *finalizing* these blocks. Once a block is finalized it cannot be reverted, and a conflicting finalized block cannot be obtained. Casper introduces *accountability*, i.e., if a validators violates some rule, it is possible to detect the violation and know which validator violated the rule. Accountability allows the system to penalize (to *slash*) Byzantine validators, solving the *nothing at stake* problem. 
-Moreover, Casper introduces a way for the validator set to change over time, allowing new validators to join the validator set, and existing validators to leave.
+**FFG Casper** is a partially synchronous consensus protocol atop a proposal mechanism. Its design seeks to *finalize* the proposed blocks, ensuring their safety even during potential network partitions. Once a block is finalized it cannot be reverted, and a conflicting finalized block cannot be obtained. Casper introduces *accountability*, i.e., if a validators violates some rule, it is possible to detect the violation and know which validator violated the rule. Accountability allows the system to penalize (or to *slash*) Byzantine validators, solving the [nothing at stake](https://vitalik.ca/general/2017/12/31/pos_faq.html#what-is-the-nothing-at-stake-problem-and-how-can-it-be-fixed) problem.
 
-[Casper](https://arxiv.org/pdf/1710.09437.pdf), introduced by Buterin and Griffith, works following a two-phase traditional propose-and-vote-based Byzantine fault tolerant (BFT) mechanism, such as [PBFT](https://pmg.csail.mit.edu/papers/osdi99.pdf) or [HotStuff](https://arxiv.org/pdf/1803.05069.pdf). Differently from PBFT or HotStuff, Casper is not a fully-specified protocol and is designed to be a *gadget* that works on top of a provided blockchain protocol. Again, differently from PBFT or HotStuff, in Casper there is no leader in charge of assembling proposals which are instead generated across honest nodes by an underlying proposal mechanism which produces child blocks of existing blocks, forming an ever-growing *block-tree*. The root of the three is the genesis block $B_{\text{genesis}}$. Casper only considers a subtree of the blocks generated by the proposal mechanism, which we call a *checkpoint tree*. Blocks in the Casper checkpoint tree are called *checkpoints*.
+[Casper](https://arxiv.org/pdf/1710.09437.pdf), introduced by Buterin and Griffith, works following a two-phase traditional propose-and-vote-based Byzantine fault tolerant (BFT) mechanism, such as [PBFT](https://pmg.csail.mit.edu/papers/osdi99.pdf) or [HotStuff](https://arxiv.org/pdf/1803.05069.pdf). Differently from PBFT or HotStuff, Casper is not a fully-specified protocol and is designed to be a *gadget* that works on top of a provided blockchain protocol. Again, differently from PBFT or HotStuff, there is no leader in charge of assembling proposals which are instead generated across honest nodes by an underlying proposal mechanism which produces child blocks of existing blocks, forming an ever-growing *block-tree*. The root of the three is the genesis block $B_{\text{genesis}}$. Casper only considers a subtree of the blocks generated by the proposal mechanism, which we call a *checkpoint tree*. Blocks in the Casper checkpoint tree are called *checkpoints*.
 
 
 <details><summary>Checkpoint</summary>
@@ -222,31 +224,25 @@ class Checkpoint(Container):
 </details>
 
 
+Casper proceeds as follows. Validators participate in the protocol by casting *votes* on blocks in the block-tree formed by the underlying proposal mechanism. This means that in the context of Casper, messages exchanged among validators are votes for blocks. 
 
+A vote message consists of four fields: two blocks (called in the context of Casper, checkpoints) $s$ (source) and $t$ (target) together with their heights $h(s)$ and $h(t)$[^1]. It is required to $s$ to be an ancestor of $t$ in the checkpoint tree, otherwise the vote is considered invalid. If $v_i$ is not in the validator set $\mathcal{V}$, the vote is considered invalid. Together with the signature of the validator $v_i$, a vote is expressed in the form $⟨v_i, s, t, h(s), h(t)⟩$.
 
-The genesis block is *justified* and *finalized*, according to the following description.
-
-Casper proceeds as follows. Validators participate in the protocol by casting *votes* on blocks in the block-tree formed by the underlying proposal mechanism.  
-
-A vote message consists of four fields: two blocks (called in the context of Casper, checkpoints) $s$ (source) and $t$ (target) together with their heights $h(s)$ and $h(t)$ (*The height $h(c)$ of a checkpoint $c$ is the number of elements in the checkpoint tree from $c$ (non-inclusive) to the root along the parent links.*). It is required to $s$ to be an ancestor of $t$ in the checkpoint tree, otherwise the vote is considered invalid. If $v_i$ is not in the validator set $\mathcal{V}$, the vote is considered invalid. Together with the signature of the validator $v_i$, a vote is expressed in the form $⟨v_i, s, t, h(s), h(t)⟩$.
-
-*For the rest of this document, when we say “$\frac{2}{3}$ of validators”, we are referring to the deposit-weighted fraction; that is, a set of validators whose sum deposit size equals to $\frac{2}{3}$ of the total deposit size of the entire set of validators.*
-
-Once a vote $⟨v_i, a, b, h(a), h(b)⟩$ has been cast by $\frac{2}{3}$ of validators and the checkpoint $a$ is justified (and the notion of *supermajority link* is defined as an ordered pair $(a,b),$ such that $\frac{2}{3}$ of validators have broadcast votes with source $a$ and target $b$), the checkpoint $b$ becomes justified. Finally, the checkpoint $b$ is finalized if $b$ is justified and at least $\frac{2}{3}$ of validators broadcast a vote $⟨v_i, b, c, h(b), h(c)⟩$, with $h(c)=h(b)+1.$ Observe that votes can skip checkpoints, i.e., given a vote $⟨v_i, a, b, h(a), h(b)⟩$, it is permitted to have $h(b) > h(a) + 1$.
+Once a vote $⟨v_i, a, b, h(a), h(b)⟩$ has been cast by $\frac{2}{3}$ of validators[^2] and the checkpoint $a$ is *justified*, i.e., $a$ is either the genesis block or $\frac{2}{3}$ of validators have broadcast votes with source a justified block $j$ and target block $a$, i.e., the pair $(j,a)$ is a *supermajority link*, the checkpoint $b$ becomes justified. Finally, the checkpoint $b$ is finalized if $b$ is justified and at least $\frac{2}{3}$ of validators broadcast a vote $⟨v_i, b, c, h(b), h(c)⟩$, with $h(c)=h(b)+1.$[^3]
 
 Let $⟨v_i, s_1, t_1, h(s_1), h(t_1)⟩$ and $⟨v, s_2, t_2, h(s_2), h(t_2)⟩$ be two voted cast by validator $v_i$. Then, it must not be that either:
 
 * $h(t_1) = h(t_2)$, i.e., a validator must not publish two distinct votes for the same target height; or
 * $h(s_1) < h(s_2) < h(t_2) < h(t_1)$, i.e., a validator must not vote within the span of its other votes.
 
-If a validator violates either (slashing) condition, the evidence of the violation can be observed, at which point the validator’s entire deposit is taken away (it is slashed) with a reward given to the submitter of the evidence transaction.
+If a validator violates either condition, the evidence of the violation can be observed, at which point the validator’s entire deposit is taken away (it is slashed) with a reward given to the submitter of the evidence transaction.
 
 Casper satisfies the following two properties, and the proof can be found in the [full paper](https://arxiv.org/pdf/1710.09437.pdf).
 
-* **Accountable Safety**: Two conflicting checkpoints imply more than $\frac{1}{3}$ adversarial stake can be detected.
+* **Accountable Safety**: Two conflicting checkpoints imply that more than $\frac{1}{3}$ adversarial stake can be detected.
 * **Plausible Liveness**: It is always possible to produce new finalized checkpoints, provided there exist blocks extending the justified checkpoint with the greatest height, and more than $\frac{2}{3}$ of the validators' stake is honest.
 
-As mentioned above, the set of validators needs to be able to change. New validators must be able to join, and existing validators must be able to leave. 
+The set of validators needs to be able to change. New validators must be able to join, and existing validators must be able to leave. 
 
 
 <details><summary>Voluntary Exit</summary>
@@ -282,10 +278,7 @@ Previously, a checkpoint $c$ was called finalized if $c$ is justified and there 
 
 #### LMD-GHOST
 
-The Latest Message Driven Greediest Heaviest Observed SubTree rule (**LMD-GHOST**) is a fork-choice rule (A fork-choice rule is a function that takes as inputs the set of blocks and other messages that have been seen, and outputs what the *canonical chain* is. This is required because there may be multiple valid chains to choose from.) introduced by [Zamfir](https://github.com/vladzamfir/research/blob/master/papers/CasperTFG/CasperTFG.pdf) while looking for a “correct-by-construction” consensus protocol. LMD-GHOST is an adaptation of the original GHOST protocol introduced by [Sompolinsky and Zohar](https://eprint.iacr.org/2013/881.pdf), a greedy algorithm that grows a blockchain on sub-branches with the “most activity”, and it guides the block production process. 
-
-The idea behind LMD-GHOST is that at any fork, the protocol uses the weights of the subtrees created by the fork as a heuristic and assumes the subtree with the heaviest weight is the *right* one, as evident from the name of the algorithm. The weight of a subtree is determined by the sum of the stake of the validators that have cast a vote, at every slot, on each single block forming such subtree. Moreover, the protocol considers only each validator’s most recent vote (or *attestation*) (LMD).
-
+**LMD-GHOST**, short for *Latest Message Driven Greediest Heaviest Observed Sub-Tree*, is a synchronous consensus protocol. The protocol proceeds in slots and epochs, as detailed above. During each slot, a block $B$ is proposed by a *proposer* -- a randomly picked validator from the committee for such slot, whose role is to propose a new block -- and broadcasted to all other validators. Subsequent honest validators within the committee cast their *votes* for a block. This means that in the context of LMD-GHOST protocol, messages exchanged among validators are both proposals for new blocks and votes for blocks. Here the protocol considers only each validator’s most recent vote. We retain a generic definition of "vote" here and will delve deeper into its specifics later when introducing the comprehensive Gasper protocol.
 
 <details><summary>Latest Message</summary>
 
@@ -300,11 +293,19 @@ This struct represents the vote in the latest (meaning highest-epoch) valid atte
 </details>
 
 
-We first show informally how LMD-GHOST works through [an example](https://vitalik.ca/general/2018/12/05/cbc_casper.html), and then we present the algorithm that implements it. 
+Blocks situated at the start of an epoch are called *epoch boundary blocks*, playing a pivotal role as checkpoints, as we will observe later, for the FFG-Casper protocol. 
 
-Let us consider a validator set $\mathcal{V} = \{v_1, v_2, v_3, v_4, v_5\}$ and let us assume that validator $v_1$ makes the blocks at slots 0 and 5, validator $v_2$ makes the blocks at slots 1 and 6, and so on. A client evaluating the LMD-GHOST fork-choice rule cares only about the most recent (i.e., highest-slot) message (i.e., block) signed by each validator:
+Every validator $v_i$ needs to decide where to append a new block (if $v_i$ is a proposer) or which block $v_i$ should vote for. To make this decision, each validator executes a *fork-choice function*, specifically the LMD-GHOST fork-choice function.
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_839d656f9a58978c3dfc8cff562eae92.jpeg)
+The LMD-GHOST fork-choice function (A fork-choice function is a deterministic function that takes as inputs the set of blocks and other messages that have been seen, i.e., a view, and outputs what the *canonical chain* is. This is required because there may be multiple valid chains to choose from) introduced by [Zamfir](https://github.com/vladzamfir/research/blob/master/papers/CasperTFG/CasperTFG.pdf) while looking for a “correct-by-construction” consensus protocol.  
+
+The idea behind LMD-GHOST fork-choice function is that at any fork, the protocol uses the weights of the subtrees created by the fork as a heuristic and assumes the subtree with the heaviest weight is the *right* one, as evident from the name of the algorithm. The weight of a subtree is determined by the sum of the stake of the validators that have cast a vote, at every slot, on each single block forming such subtree. 
+
+We first show informally how LMD-GHOST fork-choice function works through [an example](https://vitalik.ca/general/2018/12/05/cbc_casper.html), and then we present the algorithm that implements it. 
+
+Let us consider a validator set $\mathcal{V} = \{v_1, v_2, v_3, v_4, v_5\}$ and let us assume that validator $v_1$ makes the blocks at slots 0 and 5, validator $v_2$ makes the blocks at slots 1 and 6, and so on. A validator evaluating the LMD-GHOST fork-choice function cares only about the most recent message (votes) signed by each validator:
+
+![](https://storage.googleapis.com/ethereum-hackmd/upload_839d656f9a58978c3dfc8cff562eae92.jpeg =500x230)
 
 
 The protocol proceeds as it follows. Start from the genesis block, every time there is a fork, choose the side where more of the latest messages support that block's subtree, and keep doing this until a block with no descendants is reached. 
@@ -312,27 +313,24 @@ The protocol proceeds as it follows. Start from the genesis block, every time th
 By computing for each block the subset of latest messages that support either the block or one of its descendants, we obtain the following.
 
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_35d68aae9c279a0d9da725e63f443517.jpeg)
+![](https://storage.googleapis.com/ethereum-hackmd/upload_35d68aae9c279a0d9da725e63f443517.jpeg =500x200)
 
 To compute the head, start at the beginning, and then at each fork pick the higher number: first, pick the bottom chain as it has 4 latest messages supporting it versus 1 for the single-block top chain, then at the next fork support the middle chain. 
 
-We now present the protocol in a more formal way. First  we introduce the notions of *views* and *weight*.
+We now present the protocol in a more formal way. First we introduce the notion of *weight*.
 
-Due to network delays and Byzantine validators, validators may have different set of received messages.
-Each message may have one or more dependencies, where each dependency is another message. At any time, a validator *accepts a message* if and only if all of its dependencies are accepted, defined recursively. 
-A *view* of a validator $v_i \in \mathcal{V}$ at a given time $t$, denoted as $\mathscr{view}(v_i, t)$, is the set of all the accepted messages that $v_i$ has seen so far. A *God’s-eye-view* is the set of accepted messages for a hypothetical validator that has seen (with no latency) all messages any validator has broadcast at any time (this includes messages sent by a Byzantine validator to only a subset of the network).
+Finally, given a view $G$ (Since usually one talks about a specific point in time, the time can be suppressed and a notation such as $\mathscr{view}(v_i)$ (or, to simplify the notation, $G$) can be used to talk about $\mathscr{view}(v_i,t)$.), let $M$ be the set of latest attestations, one per validator. The weight $w(G,B,M)$ is defined to be the sum of the stake of the validators whose last attestation in $M$ is to $B$ or descendants of $B.$
 
-Finally, given a view $G$ (*Since usually one talks about a specific point in time, the time can be suppressed and a notation such as $\mathscr{view}(v_i)$ (or, to simplify the notation, $G$) can be used to talk about $\mathscr{view}(v_i,t)$.*), let $M$ be the set of latest attestations, one per validator. The weight $w(G,B,M)$ is defined to be the sum of the stake of the validators whose last attestation in $M$ is to $B$ or descendants of $B.$
-
-The following algorithm implements the LMD-GHOST fork-choice rule.
+The following algorithm implements the LMD-GHOST fork-choice function.
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_3f3996e05c94ac56163b0994a5c11843.png)
+
+Note that the fork-choice function detailed above isn't the one presently in use within the Ethereum protocol. Instead, it represents a more basic, or *vanilla*, LMD-GHOST fork-choice function. In the subsequent sections, we will outline the fork-choice function that Ethereum actually employs, which has been slightly adjusted to accommodate the impact of the finality gadget, Casper, within the entire protocol.
 
 
 #### FFG Casper + (H)LMD-GHOST = Gasper
 
-As we already mentioned, **Gasper** is a proof-of-stake protocol obtained by combining the finality gadget Casper on top and (an FFG-aware variation of) the fork-choice LMD-GHOST as a basis, called *Hybrid* LMD-GHOST (HLMD-GHOST). 
-
+As we already mentioned, **Gasper** is a proof-of-stake protocol obtained by combining the finality gadget Casper together with LMD-GHOST protocol, the latter equipped with (an FFG-aware variation of) the fork-choice LMD-GHOST, called *Hybrid* LMD-GHOST (HLMD-GHOST) fork-choice function. 
 
 <details><summary>Beacon State</summary>
 
@@ -432,15 +430,15 @@ All the records/objects described in this box will be clearer after the next few
 </details>
 
 
-In this section we show how to define justification and finalization in Gasper, and we present the Hybrid LMD-GHOST that is used among validators to choose the head/tip of the chain at any slot.
+In this section we show how to define justification and finalization in Gasper, and we present the Hybrid LMD-GHOST that is used among validators to choose the head/tip of the chain at any slot. Observe that in the context of Gasper, votes are often referred to as *attestations* -- we will use the terms interchangeably. 
 
 We start by presenting some preliminary notions. 
 
 For a block $B$ and an epoch $j$, define $EBB(B, j)$, the *$j$-th epoch boundary block* of $B$, to be the block with the highest slot less than or equal to $jC$ in $\mathscr{chain}(B)$, the unique chain determined by $B$. Let the *latest* such block be $LEBB(B)$, or the last epoch boundary block (of $B$). Then, for every block $B$, $EBB(B, 0)$ is the genesis block. More generally, if $\mathscr{slot}(B) = jC$ for some epoch $j$, $B$ will be an epoch boundary block in every chain that includes it.
 
-However, a block could be an epoch boundary block in some chains but not others. For this reason, *epoch boundary pairs* (or pairs for short) *(B, j)* are introduced, where $B$ is a block and $j$ is an epoch. These epoch boundary pairs are considered to play the role of Casper's checkpoints. A pair $P = (B, j)$ has *attestation epoch* $j$, denoted as $\mathscr{aep}(P) = j$. Observe that this is not necessarily the same as $\mathscr{ep}(B)$, i.e., the epoch of $B$. In fact, $\mathscr{ep}()$ is a local property that only depends on the block’s slot, while epoch boundary concepts like $\mathscr{aep}()$ depend on the context of the chain. Note that, without loss of generality, sometimes slot numbers are used as argument for $\mathscr{ep}$ and $\mathscr{aep}$ instead of blocks. It is clear that at any block $B$ corresponds a slot number. Moreover, $\mathscr{ep}(\alpha)$ is sometimes used as shorthand for $\mathscr{ep}(\mathscr{slot}(\alpha))$.
+However, a block could be an epoch boundary block in some chains but not others. For this reason, *epoch boundary pairs* (or pairs for short) *(B, j)* are introduced, where $B$ is a block and $j$ is an epoch. These epoch boundary pairs are considered to play the role of Casper's checkpoints. A pair $P = (B, j)$ has *attestation epoch* $j$, denoted as $\mathscr{aep}(P) = j$. Observe that this is not necessarily the same as $\mathscr{ep}(B)$, i.e., the epoch of $B$ (Note that, without loss of generality, sometimes slot numbers are used as argument for $\mathscr{ep}$ and $\mathscr{aep}$ instead of blocks. It is clear that at any block $B$ corresponds a slot number. Moreover, $\mathscr{ep}(\alpha)$ is sometimes used as shorthand for $\mathscr{ep}(\mathscr{slot}(\alpha))$). In fact, $\mathscr{ep}()$ is a local property that only depends on the block’s slot, while epoch boundary concepts like $\mathscr{aep}()$ depend on the context of the chain.
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_b9d78fc7c37d93db2c139d73279a33e9.png)
+![](https://storage.googleapis.com/ethereum-hackmd/upload_b9d78fc7c37d93db2c139d73279a33e9.png =500x300)
 
 In the image above, $\mathscr{aep}(63, 1)$ and $\mathscr{ep}(63) = 0$.
 
@@ -449,7 +447,7 @@ Finally, observe that, in Gasper, instead of justifying and finalizing checkpoin
 Given a block $B$, we define $\mathscr{view}(B)$, the view of $B$, to be the view consisting of $B$ and all its ancestors. We define $\mathscr{ffgview}(B)$, the FFG view of $B$, to be $\mathscr{view}(LEBB(B))$.
 The definition of $\mathscr{view}(B)$ is *agnostic of the viewer*, in the sense that any view that accepted $B$ can compute an identical $\mathscr{view}(B)$, so we do not need to supply a validator into the argument. Intuitively, $\mathscr{view}(B)$ *focuses* the view to the chain starting from the genesis block to $B$ and $\mathscr{ffgview}(B)$ looks at a *frozen* snapshot of $\mathscr{view}(B)$ at the last checkpoint. Casper FFG operates only on epoch boundary pairs, so the FFG view of a block $B$ extracts exactly the information in the chain starting from the genesis block to $B$ that is relevant to Casper FFG.
 
-In Gasper, validators are partitioned into *committees* in each epoch, with one committee per slot. In each slot, one validator from the designated committee proposes a block. Then, all the members of that committee will *attest* to what they see as the head of the chain with the fork-choice rule HLMD-GHOST (a slight variation of LMD-GHOST that will be presented below).
+In Gasper, validators are partitioned into committees in each epoch, with one committee per slot. 
 
 
 <details><summary>Committee</summary>
@@ -761,6 +759,10 @@ This function processes attestations included in `BeaconBlockBody`. First it per
 
 </details>
 
+Both proposal and attestation require to add a corresponding block and an attestation, respectively, to the validator's view, and then to broadcast it to the network. Observe that both proposing and attesting requires the committee member to run the same fork-choice function on the validator's own view. 
+
+**To summarize**, validators in Gasper cast either a proposal message, containing a new block on top of the canonical chain output by HLMD-GHOST fork-choice function, or an attestation message, containing two types of vote: an LMD-GHOST vote for the head of the canonical chain output by HLMD-GHOST fork-choice function and an FFG Casper vote between epoch boundary pairs.
+
 In the previous section, the notion of justification and finalization were given in the context of FFG Casper. For Gasper, these are extended as it follows.
 
 Recall an attestation $\alpha$ for Gasper contains a checkpoint edge $LJ(\alpha) \rightarrow LE(\alpha)$ between epoch boundary pairs, acting as a FFG vote between two epoch boundary pairs. If at least $\frac{2}{3}$ of validators have broadcast votes with source $(A,j')$ and target $(B,j)$, then there is a *supermajority link* from epoch boundary pairs $(A,j')$ and $(B,j),$ denoted with $(A,j') \xrightarrow[]{J} (B,j)$.
@@ -770,9 +772,9 @@ Given a view $G$, the set $J(G)$ of *justified* pairs is such that $(B_{\text{ge
 With the notion of justification, it becomes clearer then what both $LJ(\alpha)$ and $LE(\alpha)$ mean: $LJ(\alpha)$ is the last justified pair of $\alpha$, i.e., the last justified pair in $\mathscr{ffgview}(\mathscr{block}(\alpha))=\mathscr{view}(B)$, while $LE(\alpha)$ is the last epoch boundary pair of $\alpha$, i.e., $(B, \mathscr{ep}(\mathscr{slot}(\alpha)))$
 
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_0fd519d0f87f4080f1fe75b73e45830b.png)
+![](https://storage.googleapis.com/ethereum-hackmd/upload_0fd519d0f87f4080f1fe75b73e45830b.png =600x150)
 
-A validator’s view $G$ as she writes an attestation in epoch $3$. During epoch $1$, latency issues make her not see any blocks, so block $64$ is both $EBB(193, 1)$ and $EBB(193, 2)$. She ends up writing an attestation $\alpha$ with a GHOST vote for $\mathscr{block}(\alpha) = 193$ and a FFG vote checkpoint edge (single arc edge) $(64,2) \rightarrow (180,3)$ for $\alpha$. Blocks in red are justified (in $G$). Double edges corresponding to supermajority links. Then, $LE(\alpha) = (180, 3)$, even though $\mathscr{ep}(180) = 2$. In $\mathscr{ffgview}(193) = \mathscr{view}(180)$, the last justified (by epoch number, not slot) pair is (64, 2), so $LJ(\alpha) = (64, 2)$.
+A validator’s view $G$ as she writes an attestation in epoch $3$. During epoch $1$, latency issues make her not see any blocks, so block $64$ is both $EBB(193, 1)$ and $EBB(193, 2)$. She ends up writing an attestation $\alpha$ with an LMD-GHOST vote for $\mathscr{block}(\alpha) = 193$ and a FFG vote checkpoint edge (single arc edge) $(64,2) \rightarrow (180,3)$. Blocks in red are justified (in $G$). Double edges corresponding to supermajority links. Then, $LE(\alpha) = (180, 3)$, even though $\mathscr{ep}(180) = 2$. In $\mathscr{ffgview}(193) = \mathscr{view}(180)$, the last justified (by epoch number, not slot) pair is (64, 2), so $LJ(\alpha) = (64, 2)$.
 
 Everything here is analogous to Casper FFG. Inside the chain of $\mathscr{block}(\alpha)$ is a sub-chain created by the epoch boundary blocks of that chain, starting from Bgenesis and ending at $B = LEBB(\alpha)$.
 
@@ -877,9 +879,11 @@ We can now finally present HLMD-GHOST, a variation of LMD-GHOST. In this variati
 
 One can think of each chain of a leaf block $B_l$ as storing the state of its own last justified pair. During an epoch, new attestations to blocks in the chain updates the GHOST-relevant list of latest attestations $M$ but not the FFG-relevant justification and finalization information of the chain until the next epoch boundary block. This way, the *FFG part* of the protocol always works with the *frozen until next epoch* information, while the *GHOST part* of the protocol is being updated continuously with the attestations.
 
+The fork-choice function of Gasper went through several updates and changes during the years. To see how this evolved over the years, see [this chapter](https://eth2book.info/capella/part3/forkchoice/).
+
 <details><summary>fork-choice</summary>
 
-The fork-choice is implemented through a `store` object that contains received fork-choice-relevant information, and a function `get_head(store)`.
+The fork-choice is implemented through a `store` object that contains received fork-choice-relevant information, and a function `get_head(store)`. `Store` represents the view $G$ of a validator.
 
 ```python
 @dataclass
@@ -1165,31 +1169,33 @@ class AttesterSlashing(Container):
 
 In this section we present the properties that Gasper *should* satisfy as a consensus protocol, following the formalization introduced by [Neu *et al.*](https://arxiv.org/pdf/2009.04987.pdf)
 
-However, due to some discovered attacks (that will be presented in the following sections), these properties are not guaranteed in the original version of Gasper, i.e., the version presented above.
+The goal of a consensus protocol is to allow all participants to reach a common decision despite the presence of faulty ones. In our context, this translates into allowing honest validators to grow a chain that is finalized and where all blocks constitute consistent state transitions with each other. Here we assume validators being Byzantine, being potentially offline, or suffering latency problems. In other terms, this translates (informally) to the following properties.
 
-The goal of a consensus protocol is to allow all participants to reach a common decision despite the presence of faulty ones. In our context, this translates into allowing honest validators to grow a chain that is finalized and where all blocks constitute consistent state transitions with each other. Here we assume validators being Byzantine, being potentially offline, or suffering latency problems. In other terms, this translates to the following properties.
-
-* **Safety**: If the set of finalized blocks $F(G)$ for any view $G$ can never contain two conflicting blocks. 
-* **Liveness**: If the set of finalized blocks can actually grow. 
+* **Safety**: The set of finalized blocks $F(G)$ for any view $G$ can never contain two conflicting blocks. 
+* **Liveness**: The set of finalized blocks can actually grow. 
 
 #### Availability-Finality Dilemma
 
 A novelty that blockchains have introduced is the notion of *dynamically available* protocols, i.e., consensus protocols that can support an unknown and variable number of participants. 
-One limitation of these protocols is that they are not tolerant to network partitions. In particular, when the network partitions, honest participants in a dynamically available protocol will think that many participants are asleep and keep confirming transactions, potentially leading to safety violations. A different approach is instead taken by standard permissioned BFT protocols such as PBFT or HotStuff. These are designed for partially synchronous networks, and a quorum of at least two-thirds of all the participants is required to finalize transactions, ensuring safety under network partition, but not liveness. Liveness is guaranteed only after GST. It is *impossible* for any consensus protocol to be both safe under network partition and live under dynamic participation.
+One limitation of these protocols, as a result of the [CAP theorem](https://arxiv.org/abs/2006.10698), is that they are not tolerant to network partitions. In particular, when the network partitions, honest participants in a dynamically available protocol will think that many participants are asleep and keep confirming transactions, potentially leading to safety violations. A different approach is instead taken by standard permissioned BFT protocols such as PBFT or HotStuff. These are designed for partially synchronous networks, and a quorum of at least two-thirds of all the participants is required to finalize transactions, ensuring safety under network partition, but not liveness. Liveness is guaranteed only after GST. It is *impossible* for any consensus protocol to be both safe under network partition and live under dynamic participation.
 
-In other words, *the availability-finality dilemma says that there cannot be a consensus protocol for state-machine replication, one that outputs a single ledger, that provides both properties. The next best thing is then to ask for a protocol with two confirmation rules that outputs two ledgers, one that provides availability under dynamic participation, and one that provides finality even under network partitions, and in the long run they should agree on a common account of history.* [https://decentralizedthoughts.github.io/2020-11-01-ebb-and-flow-protocols-a-resolution-of-the-availability-finality-dilemma/]
+In other words, *the availability-finality dilemma says that there cannot be a consensus protocol for state-machine replication, one that outputs a single chain, that provides both properties. The next best thing is then to ask for a protocol with two confirmation rules that outputs two chains, one that provides availability under dynamic participation, and one that provides finality even under network partitions, and in the long run they should agree on a common account of history.* [https://decentralizedthoughts.github.io/2020-11-01-ebb-and-flow-protocols-a-resolution-of-the-availability-finality-dilemma/]
 
-Based on this observation, [Neu *et al.*](*https://arxiv.org/pdf/2009.04987.pdf) gave a formalization of the properties that Gasper, according to its design goals, should satisfy. In particular, given the time model described at the beginning of this document, they define the notion of $(\beta_1,\beta_2)$*-secure ebb-and-flow protocol* to be a protocol that outputs an available ledger $𝖫𝖮𝖦_{\text{da}}$ and a finalized ledger $𝖫𝖮𝖦_{\text{fin}}$ satisfying the following properties:
+Based on this observation, [Neu *et al.*](*https://arxiv.org/pdf/2009.04987.pdf) give a formalization of the properties that Gasper, according to its design goals, should satisfy. In particular, given the time model described at the beginning of this document, they define the notion of $(\beta_1,\beta_2)$*-secure ebb-and-flow protocol* to be a protocol that outputs an available chain $𝖫𝖮𝖦_{\text{da}}$ and a finalized chain $𝖫𝖮𝖦_{\text{fin}}$ satisfying the following properties:
 
-* **Finality**: The finalized ledger $𝖫𝖮𝖦_{\text{fin}}$ is guaranteed to be accountable safe (in the event of a safety violation, one can provably identify Byzantine validators that have violated the protocol) at all times, and live after $\max\{𝖦𝖲𝖳,𝖦𝖠𝖳\}$, provided that fewer than $\beta_1$ proportion of all the nodes are adversarial.
-* **Dynamic Availability**: If $𝖦𝖲𝖳=0$, i.e., if the network is synchronous, the available ledger $𝖫𝖮𝖦_{\text{da}}$ is guaranteed to be safe and live at all times, provided that at all times fewer than $\beta_2$ proportion of the awake nodes are adversarial.
+* **Finality**: The finalized chain $𝖫𝖮𝖦_{\text{fin}}$ is guaranteed to be accountable safe, i.e., in the event of a safety violation, one can provably identify Byzantine validators that have violated the protocol, at all times, and live after $\max\{𝖦𝖲𝖳,𝖦𝖠𝖳\}$, provided that fewer than $\beta_1$ proportion of all the nodes are adversarial.
+* **Dynamic Availability**: If $𝖦𝖲𝖳=0$, i.e., if the network is synchronous, the available chain $𝖫𝖮𝖦_{\text{da}}$ is guaranteed to be safe and live at all times, provided that at all times fewer than $\beta_2$ proportion of the awake nodes are adversarial.
 * **Prefix**: $𝖫𝖮𝖦_{\text{fin}}$ is a prefix of $𝖫𝖮𝖦_{\text{da}}$ at all times.
 
 In the case of Gasper, we want $\beta_1 = 33 \%$ and $\beta_2=50 \%.$
 
-In other words, *together, Finality and Dynamic Availability say that the finalized ledger $𝖫𝖮𝖦_{\text{fin}}$ is safe under network partitions, i.e., before $\max\{𝖦𝖲𝖳,𝖦𝖠𝖳\}$, and can experience liveness violations before GST or GAT, and afterwards (after validators wake up and the network turns synchronous) catches up with the available ledger $𝖫𝖮𝖦_{\text{da}}$. The Prefix property ensures that eventually all clients, no matter what confirmation rule they follow, will still agree on a single account of history.* [https://decentralizedthoughts.github.io/2020-11-01-ebb-and-flow-protocols-a-resolution-of-the-availability-finality-dilemma/]
+In other words, *together, Finality and Dynamic Availability say that the finalized chain $𝖫𝖮𝖦_{\text{fin}}$ is safe under network partitions, i.e., before $\max\{𝖦𝖲𝖳,𝖦𝖠𝖳\}$, and can experience liveness violations before GST or GAT, and afterwards (after validators wake up and the network turns synchronous) catches up with the available chain $𝖫𝖮𝖦_{\text{da}}$. The Prefix property ensures that eventually all clients, no matter what confirmation rule they follow, will still agree on a single account of history.* [https://decentralizedthoughts.github.io/2020-11-01-ebb-and-flow-protocols-a-resolution-of-the-availability-finality-dilemma/]
 
-### Weak Subjectivity
+
+In the context of Gasper, FFG Casper produces the finalized chain, whereas the LMD-GHOST protocol outputs the available chain. However, as we delve deeper into the [second part](https://notes.ethereum.org/dWgSae0CS0qI11XVeuypNA) of this document, we'll observe that LMD-GHOST faces challenges in handling dynamic availability. Various solutions have been suggested to mitigate these problems, and [continuous research](https://arxiv.org/abs/2302.11326) efforts are being made to refine and enhance its performance.
+
+
+### Extra: Weak Subjectivity
 
 One of the problems that proof-of-stake consensus protocols have is that they are subject to long-range attacks. In a long-range attack, an adversary corrupts past participants in the consensus protocol in order to re-write the history of the blockchain. The reason why this attack can be placed in a proof-of-stake-based system is because, in such system, the creation of a block is costless, contrary to proof-of-work-based systems where some external resource, e.g., computation, must be spent in order to create a new block.
 
@@ -1632,9 +1638,7 @@ When a proposer is honest, the network is synchronous, and an honest supermajori
 
 The SSF protocol is implemented by the following algorithm
 
-
-![](https://storage.googleapis.com/ethereum-hackmd/upload_4d64cf1953a3d35c3ec65c893baa609f.png)
-
+![](https://storage.googleapis.com/ethereum-hackmd/upload_d7a7e0cded1e3858e337c28ac898f2c8.png)
 
 
 ##### Acknowledgments
